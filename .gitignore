@@ -1,0 +1,17 @@
+.DS_Store
+
+# Maintainer / extended documentation (not tracked in this repository)
+docs/
+
+# LaTeX
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.out
+*.toc
+*.synctex.gz
+*.pdf
+mermaid
+build/
+out/

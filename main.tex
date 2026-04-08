@@ -1,0 +1,109 @@
+% Example: LuaLaTeX + -shell-escape + Mermaid CLI (see README.md)
+\documentclass{article}
+% 見出し・キャプションの日本語用（TeX Live の luatexja）。英語のみなら削除してよい。
+\usepackage{luatexja}
+% mmdc が PATH に無い場合は例: \usepackage[Renderer={npx -y @mermaid-js/mermaid-cli}]{ltmermaid}
+\usepackage{ltmermaid}
+%\MermaidAdjustBoxOpts{max width=0.85\linewidth,center}
+
+\begin{document}
+\section*{Mermaid 複合テスト}
+
+\begin{figure}[htbp]
+\begin{mermaid}
+flowchart TB
+  subgraph client["クライアント層"]
+    WEB["ブラウザ / SPA"]
+    CLI["CLI / バッチ"]
+  end
+  subgraph edge["エッジ"]
+    GW{{API Gateway}}
+  end
+  subgraph svc["サービス層"]
+    AUTH["認証"]
+    API["業務 API"]
+    WORK["ワーカー"]
+  end
+  subgraph store["データ"]
+    DB[("PostgreSQL")]
+    CACHE[("Redis")]
+    QUEUE[ジョブキュー]
+  end
+  WEB --> GW
+  CLI --> GW
+  GW --> AUTH
+  GW --> API
+  API --> WORK
+  API --> DB
+  API --> CACHE
+  WORK --> QUEUE
+  WORK --> DB
+\end{mermaid}
+\caption{多層アーキテクチャ（サブグラフ・各種ノード形）}
+\end{figure}
+
+\begin{figure}[htbp]
+\begin{mermaid}
+sequenceDiagram
+  autonumber
+  actor U as 利用者
+  participant B as ブラウザ
+  participant A as 認証API
+  participant S as 業務API
+  participant D as DB
+  U->>B: ログイン
+  B->>+A: POST /token
+  A->>D: ユーザー検証
+  D-->>A: レコード
+  A-->>-B: JWT
+  B->>+S: GET /orders（Bearer）
+  S->>A: トークン検証
+  A-->>S: クレーム
+  S->>D: SELECT
+  D-->>S: 行集合
+  S-->>-B: 200 JSON
+  B-->>U: 一覧表示
+\end{mermaid}
+\caption{シーケンス図（番号・非同期矢印・複数参加者）}
+\end{figure}
+
+\begin{figure}[htbp]
+\begin{mermaid}
+stateDiagram-v2
+  [*] --> Draft: 新規作成
+  Draft --> Review: 提出
+  Review --> Draft: 差し戻し
+  Review --> Approved: 承認
+  Approved --> Published: 公開
+  Published --> Archived: 終了
+  Review --> Rejected: 却下
+  Rejected --> [*]
+  Archived --> [*]
+\end{mermaid}
+\caption{状態遷移（stateDiagram-v2）}
+\end{figure}
+
+\begin{figure}[htbp]
+\begin{mermaid}
+classDiagram
+  class Document {
+    +String title
+    +Date modified
+    +save()
+    +exportPDF()
+  }
+  class Section {
+    +String heading
+    +int order
+  }
+  class Asset {
+    +String path
+    +String mime
+  }
+  Document "1" *-- "many" Section : contains
+  Document "1" *-- "many" Asset : embeds
+\end{mermaid}
+\caption{クラス図（関連多重度）}
+\end{figure}
+
+\end{document}
