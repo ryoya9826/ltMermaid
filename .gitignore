@@ -11,7 +11,9 @@ docs/
 *.out
 *.toc
 *.synctex.gz
-*.pdf
-mermaid
+*.nav
+*.snm
+*.vrb
+mermaid/
 build/
 out/

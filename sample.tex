@@ -1,32 +1,207 @@
-% Example: LuaLaTeX + -shell-escape + Mermaid CLI (see README.md)
-\documentclass{article}
-\usepackage{luatexja}
-% mmdc が PATH に無い場合は例: \usepackage[Renderer={npx -y @mermaid-js/mermaid-cli}]{ltmermaid}
+% Package documentation and examples for ltmermaid.sty (English; mirrors sample-ja.tex)
+% Compile: lualatex -shell-escape sample.tex
+\documentclass[11pt,a4paper]{article}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
 \usepackage{ltmermaid}
-%\MermaidAdjustBoxOpts{max width=0.85\linewidth,center}
+\usepackage[hidelinks]{hyperref}
+\usepackage{bxghost}
+
+\makeatletter
+\def\m@syu@space@char{^^`}
+
+\def\m@syu@string#1{%
+  \@tfor\m@syu@member:=#1\do{%
+    \ifx\m@syu@member\m@syu@space@char
+      \textvisiblespace
+    \else
+      \ifx\m@syu@member\empty
+        \textvisiblespace
+      \else\m@syu@member\fi
+    \fi}%
+}
+
+\def\m@syu@removespace#1{%
+  \def\m@syu@removedspace{}%
+  \@tfor\m@syu@member:=#1\do{%
+    \ifx\m@syu@member\empty
+    \edef\m@syu@removedspace{\m@syu@removedspace\m@syu@member\m@syu@space@char}%
+  \else
+    \edef\m@syu@removedspace{\m@syu@removedspace\m@syu@member}%
+  \fi}%
+}
+
+\newcommand{\cmd}[2][\texttt]{\eghostguarded{#1{\symbol{92}\m@syu@string{#2}}}}
+\makeatother
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\title{The \texttt{ltmermaid} package}
+\author{Ryoya Ando}
+\date{2026-04-13}
 
 \begin{document}
-\section*{Mermaid 複合テスト}
+\maketitle
 
-\begin{figure}[htbp]
+\begin{abstract}
+\noindent
+The \texttt{ltmermaid} package renders Mermaid diagrams at \LaTeXe{} compile time when using
+\textbf{LuaLaTeX} and embeds them in the PDF. Rendering uses external tools such as the Mermaid
+CLI, so \textbf{shell escape} (\verb|-shell-escape|) is required. The machine that runs
+\texttt{lualatex} must have a working \textbf{Node.js} installation, \texttt{mmdc} (or
+\texttt{npx}), and headless Chromium for the CLI.
+\end{abstract}
+
+\section{Requirements}
+
+\noindent
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}L@{}}
+  \hline
+  \textbf{Item} & \textbf{Requirement} \\
+  \hline
+  \TeX{} engine &
+    LuaLaTeX (\texttt{lualatex}). \\
+  Format &
+    \LaTeXe. \\
+  Shell escape &
+    \texttt{lualatex -shell-escape} (the package invokes the CLI via \texttt{os.execute}). \\
+  External tool &
+    Mermaid CLI (\texttt{mmdc}). \\
+  \hline
+\end{tabularx}
+
+\medskip
+
+If the Mermaid CLI is missing from the environment, \texttt{ltmermaid} does \textbf{not}
+auto-install \texttt{mmdc} or similar. A typical setup uses \textbf{Node.js} with
+\texttt{npm} (or \texttt{npx}). If you pass a command that includes \textbf{\texttt{npx -y}}
+via the package option \texttt{Renderer}---for example
+\texttt{npx -y @mermaid-js/mermaid-cli \ldots}---then \texttt{npx} may fetch and install packages
+as needed (\textbf{network access} may be required).
+
+When you run \texttt{lualatex}, unless the \texttt{Renderer} option points to another command,
+the default renderer \texttt{mmdc} must be visible in the same environment (if you set
+\texttt{Renderer}, that command must be visible instead). The Mermaid CLI depends on headless
+Chromium (Puppeteer); see the Mermaid CLI documentation for details.
+
+\section{License and source}
+
+\noindent
+Distributed under the \LaTeX{} Project Public License (LPPL), version 1.3c or later.\\
+Source and issues: \url{https://github.com/ryoya9826/ltMermaid}
+
+\section{Usage}
+
+\subsection{Minimal document}
+
+\begin{verbatim}
+\documentclass{article}
+\usepackage{ltmermaid}
+
+\begin{document}
+\begin{mermaid}
+flowchart LR
+  A --> B
+\end{mermaid}
+\end{document}
+\end{verbatim}
+
+Compile with:
+\begin{verbatim}
+lualatex -shell-escape yourfile.tex
+\end{verbatim}
+
+\subsection{Layout adjustments (optional)}
+
+By default, included graphics are scaled with \texttt{adjustbox}. Example:
+\begin{verbatim}
+\MermaidAdjustBoxOpts{max width=0.8\linewidth,center}
+\MermaidAdjustBoxOpts{max width=0.9\linewidth,center,valign=T}
+\end{verbatim}
+
+\subsection{Beamer}
+
+The package works with the \texttt{beamer} class. Any frame that contains a \texttt{mermaid}
+environment must use the \texttt{fragile} option (the environment relies on \texttt{fancyvrb}),
+for example \verb|\begin{frame}[fragile]{Diagram}|.
+
+\begin{verbatim}
+\documentclass{beamer}
+\usepackage{ltmermaid}
+
+\begin{document}
+\begin{frame}[fragile]{Mermaid}
+\begin{mermaid}
+flowchart LR
+  A --> B
+\end{mermaid}
+\end{frame}
+\end{document}
+\end{verbatim}
+
+\section{Package options (optional)}
+
+{\small
+\begin{itemize}
+\item \textbf{\texttt{Renderer}}:
+  Prefix for the renderer command. If omitted, the default is \texttt{mmdc}.
+  You can set it explicitly, for example \texttt{npx -y @mermaid-js/mermaid-cli}.
+\end{itemize}
+\par}
+
+\section{User macros}
+
+{\small
+\begin{itemize}
+\item \textbf{\cmd{MermaidRendererOptions}\texttt{\{...\}}:}
+  Extra CLI arguments before \texttt{-i} / \texttt{-o} (merged after the built-in \texttt{-f} when
+  PDF fit is enabled).
+\item \textbf{\cmd{MermaidNoPdfFit}:}
+  Disables \texttt{-f} / \texttt{--pdfFit} for \texttt{mmdc} (by default this is \emph{on}).
+\item \textbf{\cmd{MermaidAdjustBoxOpts}\texttt{\{...\}}:}
+  Full \texttt{adjustbox} key list around \cmd{includegraphics} (default
+  \texttt{max width=0.9}\cmd{linewidth}\texttt{,center}).
+\item \textbf{\cmd{MermaidGraphicsOpts}\texttt{\{...\}}:}
+  Extra keys for \cmd{includegraphics} (e.g.\ rotation, \texttt{trim}); width is usually set with
+  \cmd{MermaidAdjustBoxOpts}.
+\end{itemize}
+\par}
+
+\section{Output files}
+
+Intermediate \texttt{.mmd} and \texttt{.pdf} files are written under the \texttt{mermaid/}
+directory relative to the directory where compilation runs. With \texttt{-output-directory},
+they are written under \texttt{mermaid/} inside the directory indicated by the environment variable
+\texttt{TEXMF\_OUTPUT\_DIRECTORY}.
+
+\section{Examples}
+
+\textbf{Left:} source for the \texttt{mermaid} environment as typed.
+\textbf{Right:} rendered diagram.
+
+\begin{figure}[H]
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}\footnotesize
+\begin{verbatim}
 \begin{mermaid}
 flowchart TB
-  subgraph client["クライアント層"]
-    WEB["ブラウザ / SPA"]
-    CLI["CLI / バッチ"]
+  subgraph client["Client tier"]
+    WEB["Browser / SPA"]
+    CLI["CLI / batch"]
   end
-  subgraph edge["エッジ"]
+  subgraph edge["Edge"]
     GW{{API Gateway}}
   end
-  subgraph svc["サービス層"]
-    AUTH["認証"]
-    API["業務 API"]
-    WORK["ワーカー"]
+  subgraph svc["Services"]
+    AUTH["Auth"]
+    API["Business API"]
+    WORK["Workers"]
   end
-  subgraph store["データ"]
+  subgraph store["Data"]
     DB[("PostgreSQL")]
     CACHE[("Redis")]
-    QUEUE[ジョブキュー]
+    QUEUE["Job queue"]
   end
   WEB --> GW
   CLI --> GW
@@ -38,71 +213,143 @@ flowchart TB
   WORK --> QUEUE
   WORK --> DB
 \end{mermaid}
-\caption{多層アーキテクチャ（サブグラフ・各種ノード形）}
+\end{verbatim}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.54\textwidth}
+\vspace{0pt}\centering
+\begin{mermaid}
+flowchart TB
+  subgraph client["Client tier"]
+    WEB["Browser / SPA"]
+    CLI["CLI / batch"]
+  end
+  subgraph edge["Edge"]
+    GW{{API Gateway}}
+  end
+  subgraph svc["Services"]
+    AUTH["Auth"]
+    API["Business API"]
+    WORK["Workers"]
+  end
+  subgraph store["Data"]
+    DB[("PostgreSQL")]
+    CACHE[("Redis")]
+    QUEUE["Job queue"]
+  end
+  WEB --> GW
+  CLI --> GW
+  GW --> AUTH
+  GW --> API
+  API --> WORK
+  API --> DB
+  API --> CACHE
+  WORK --> QUEUE
+  WORK --> DB
+\end{mermaid}
+\end{minipage}
+\caption{Layered architecture (subgraphs and node shapes)}
 \end{figure}
 
-\begin{figure}[htbp]
+\begin{figure}[H]
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}\footnotesize
+\begin{verbatim}
 \begin{mermaid}
 sequenceDiagram
   autonumber
-  actor U as 利用者
-  participant B as ブラウザ
-  participant A as 認証API
-  participant S as 業務API
+  actor U as User
+  participant B as Browser
+  participant A as Auth API
+  participant S as Business API
   participant D as DB
-  U->>B: ログイン
+  U->>B: Log in
   B->>+A: POST /token
-  A->>D: ユーザー検証
-  D-->>A: レコード
+  A->>D: Verify user
+  D-->>A: Row
   A-->>-B: JWT
-  B->>+S: GET /orders（Bearer）
-  S->>A: トークン検証
-  A-->>S: クレーム
+  B->>+S: GET /orders (Bearer)
+  S->>A: Validate token
+  A-->>S: Claims
   S->>D: SELECT
-  D-->>S: 行集合
+  D-->>S: Rows
   S-->>-B: 200 JSON
-  B-->>U: 一覧表示
+  B-->>U: Show list
 \end{mermaid}
-\caption{シーケンス図（番号・非同期矢印・複数参加者）}
+\end{verbatim}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.54\textwidth}
+\vspace{0pt}\centering
+\begin{mermaid}
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant B as Browser
+  participant A as Auth API
+  participant S as Business API
+  participant D as DB
+  U->>B: Log in
+  B->>+A: POST /token
+  A->>D: Verify user
+  D-->>A: Row
+  A-->>-B: JWT
+  B->>+S: GET /orders (Bearer)
+  S->>A: Validate token
+  A-->>S: Claims
+  S->>D: SELECT
+  D-->>S: Rows
+  S-->>-B: 200 JSON
+  B-->>U: Show list
+\end{mermaid}
+\end{minipage}
+\caption{Sequence diagram (autonumber, async arrows, multiple participants)}
 \end{figure}
 
-\begin{figure}[htbp]
+\begin{figure}[H]
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}\footnotesize
+\begin{verbatim}
 \begin{mermaid}
 stateDiagram-v2
-  [*] --> Draft: 新規作成
-  Draft --> Review: 提出
-  Review --> Draft: 差し戻し
-  Review --> Approved: 承認
-  Approved --> Published: 公開
-  Published --> Archived: 終了
-  Review --> Rejected: 却下
+  [*] --> Draft: Create
+  Draft --> Review: Submit
+  Review --> Draft: Send back
+  Review --> Approved: Approve
+  Approved --> Published: Publish
+  Published --> Archived: Close
+  Review --> Rejected: Reject
   Rejected --> [*]
   Archived --> [*]
 \end{mermaid}
-\caption{状態遷移（stateDiagram-v2）}
+\end{verbatim}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.54\textwidth}
+\vspace{0pt}\centering
+\begin{mermaid}
+stateDiagram-v2
+  [*] --> Draft: Create
+  Draft --> Review: Submit
+  Review --> Draft: Send back
+  Review --> Approved: Approve
+  Approved --> Published: Publish
+  Published --> Archived: Close
+  Review --> Rejected: Reject
+  Rejected --> [*]
+  Archived --> [*]
+\end{mermaid}
+\end{minipage}
+\caption{State machine (\texttt{stateDiagram-v2})}
 \end{figure}
 
-\begin{figure}[htbp]
-\begin{mermaid}
-classDiagram
-  class Document {
-    +String title
-    +Date modified
-    +save()
-    +exportPDF()
-  }
-  class Section {
-    +String heading
-    +int order
-  }
-  class Asset {
-    +String path
-    +String mime
-  }
-  Document "1" *-- "many" Section : contains
-  Document "1" *-- "many" Asset : embeds
-\end{mermaid}
-\caption{クラス図（関連多重度）}
-\end{figure}
+\section{Version history}
+
+\noindent
+\textbf{Version 0.2} (2026-04-13): Removed \texttt{MERMAID\_MMDC} and \texttt{MERMAID\_MMDC\_OPTIONS}.
+
+\smallskip
+\noindent
+\textbf{Version 0.1} (2026-04-08): Initial release.
 
 \end{document}

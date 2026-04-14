@@ -6,7 +6,6 @@
 % Intended for local compilation. Requires Mermaid CLI (mmdc), e.g. via Node:
 %   npm install -g @mermaid-js/mermaid-cli
 % or npx: \usepackage[Renderer={npx -y @mermaid-js/mermaid-cli}]{ltmermaid}
-% or set MERMAID_MMDC.
 % Compile with: lualatex -shell-escape <file>.tex
 %
 % Copyright (C) 2026 Ryoya Ando (https://github.com/ryoya9826)
@@ -20,7 +19,7 @@
 % version 2008/05/04 or later.
 %
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{ltmermaid}[2026/04/08 v0.1 Mermaid via Mermaid CLI / PDF (Ryoya Ando)]
+\ProvidesPackage{ltmermaid}[2026/04/13 v0.2 Mermaid via Mermaid CLI / PDF (Ryoya Ando)]
 \RequirePackage{ifluatex}
 \ifluatex\else
   \PackageError{ltmermaid}{This package requires LuaLaTeX (lualatex).}{}
@@ -70,7 +69,7 @@ local function ensure_dir(path)
   end
   local ok, err = lfs.mkdir(path)
   if not ok and lfs.attributes(path, "mode") ~= "directory" then
-    tex.error("mermaid: cannot create directory (" .. tostring(err) .. "): " .. path)
+    tex.error("ltmermaid: cannot create directory (" .. tostring(err) .. "): " .. path)
   end
 end
 
@@ -111,20 +110,12 @@ local function resolve_renderer(tex_cmd)
   if tex_cmd ~= nil and tex_cmd ~= "" then
     return tex_cmd
   end
-  local from_env = os.getenv("MERMAID_MMDC")
-  if from_env ~= nil and from_env ~= "" then
-    return from_env
-  end
   return mermaid_cli.default_renderer
 end
 
 local function resolve_extra_args(tex_args)
   if tex_args ~= nil and tex_args ~= "" then
     return tex_args
-  end
-  local from_env = os.getenv("MERMAID_MMDC_OPTIONS")
-  if from_env ~= nil and from_env ~= "" then
-    return from_env
   end
   return ""
 end
@@ -162,7 +153,7 @@ local function interpret_execute_result(a, b, c)
 end
 
 local function mermaid_log(msg)
-  local line = "[mermaid] " .. msg
+  local line = "[ltmermaid] " .. msg
   texio.write_nl("log", line)
   texio.write_nl("term", line)
 end
@@ -195,7 +186,7 @@ local function renderer_uses_npx(renderer)
 end
 
 local function output_pdf_missing(renderer, out_abs)
-  local msg = "mermaid: PDF was not produced: " .. out_abs
+  local msg = "ltmermaid: PDF was not produced: " .. out_abs
   if renderer_uses_npx(renderer) then
     msg = msg .. " (possible npx -y fetch failure, network issue, or missing Chromium setup)."
   else
@@ -207,13 +198,13 @@ end
 local function verify_pdf(path)
   local f, err = io.open(path, "rb")
   if not f then
-    tex.error("mermaid: cannot open PDF (" .. tostring(err) .. "): " .. path)
+    tex.error("ltmermaid: cannot open PDF (" .. tostring(err) .. "): " .. path)
     return
   end
   local head = f:read(5)
   f:close()
   if not head or string.len(head) < 4 or string.sub(head, 1, 4) ~= "%PDF" then
-    tex.error("mermaid: PDF is invalid or corrupt (check mmdc and Mermaid syntax). Path: " .. path)
+    tex.error("ltmermaid: PDF is invalid or corrupt (check mmdc and Mermaid syntax). Path: " .. path)
     return
   end
 end
@@ -265,7 +256,7 @@ function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
   if status == "ok" then
     mermaid_log("renderer subprocess: finished (parsed as success)")
   elseif status == "spawn_failed" then
-    local msg = "mermaid: could not run the renderer (check -shell-escape, PATH, and MERMAID_MMDC)."
+    local msg = "ltmermaid: could not run the renderer (check -shell-escape, PATH, and Renderer package option)."
     if renderer_uses_npx(renderer) then
       msg = msg .. " With npx, Node/npm must be on PATH."
     end
@@ -273,11 +264,11 @@ function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
     return
   elseif status == "unknown" then
     mermaid_log("os.execute return could not be parsed (a=" .. tostring(a) .. ", b=" .. tostring(b) .. ", c=" .. tostring(c) .. ")")
-    tex.error("mermaid: cannot interpret os.execute return value; check the renderer.")
+    tex.error("ltmermaid: cannot interpret os.execute return value; check the renderer.")
     return
   elseif status == "exit" then
     mermaid_log("renderer exit code: " .. tostring(exitcode))
-    local msg = "mermaid: renderer exited with code " .. tostring(exitcode) .. "."
+    local msg = "ltmermaid: renderer exited with code " .. tostring(exitcode) .. "."
     if renderer_uses_npx(renderer) then
       msg = msg .. " npx -y needs registry access; missing Chromium or syntax errors often yield exit 1."
     end

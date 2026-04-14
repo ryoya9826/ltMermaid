@@ -1,0 +1,350 @@
+% ltmermaid.sty の説明と使用例（日本語版）
+% コンパイル例: lualatex -shell-escape sample-ja.tex
+% 文書クラス: BXjscls の bxjsarticle（LuaLaTeX + ja=standard）
+\documentclass[lualatex,luatex,ja=standard,a4paper,11pt]{bxjsarticle}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{ltmermaid}
+\usepackage[hidelinks]{hyperref}
+\usepackage{bxghost}	
+
+\makeatletter
+\def\m@syu@space@char{^^`}
+
+\def\m@syu@string#1{%
+	\@tfor\m@syu@member:=#1\do{%
+		\ifx\m@syu@member\m@syu@space@char %%%{} も{ }も空白とみなすために必要
+			\textvisiblespace
+		\else
+			\ifx\m@syu@member\empty
+				\textvisiblespace
+			\else\m@syu@member\fi
+		\fi}%
+}
+
+\def\m@syu@removespace#1{%%%% #1の空白除去を\m@syu@removedspaceに格納
+	\def\m@syu@removedspace{}%
+	\@tfor\m@syu@member:=#1\do{%
+		\ifx\m@syu@member\empty
+		\edef\m@syu@removedspace{\m@syu@removedspace\m@syu@member\m@syu@space@char}%
+	\else
+		\edef\m@syu@removedspace{\m@syu@removedspace\m@syu@member}%
+	\fi}%
+}	
+
+\newcommand{\cmd}[2][\texttt]{\eghostguarded{#1{\symbol{92}\m@syu@string{#2}}}}
+\makeatother
+% 表の全幅レイアウト: 第2列を折り返し（X）
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\title{\texttt{ltmermaid} パッケージ}
+\author{安藤 遼哉（Ryoya Ando）}
+\date{2026-04-13}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+\texttt{ltmermaid} パッケージは、\textbf{LuaLaTeX} を使うことにより\LaTeXe コンパイル時に Mermaid 図を同時にレンダリングし、PDFに埋め込みます。Mermaid 図のレンダリングに Mermaid CLI などのツールを利用する必要があるため、シェルエスケープ（\verb|-shell-escape|）が必要です。\texttt{lualatex} を実行する
+マシンには、動作する \textbf{Node.js}、\texttt{mmdc}（または \texttt{npx}）、および CLI 用のヘッドレス Chromium が利用できる必要があります。
+\end{abstract}
+
+\section{動作条件}
+
+\noindent
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}L@{}}
+  \hline
+  \textbf{項目} & \textbf{条件} \\
+  \hline
+  \TeX{} エンジン &
+    LuaLaTeX（\texttt{lualatex}） \\
+  フォーマット &
+    \LaTeXe \\
+  シェルエスケープ &
+    \texttt{lualatex -shell-escape} （\texttt{os.execute} 経由で CLI を起動します） \\
+  外部ツール &
+    Mermaid CLI（\texttt{mmdc}）\\
+  \hline
+\end{tabularx}
+
+\medskip
+
+Mermaid CLI が環境にない場合、\texttt{ltmermaid} は \texttt{mmdc} などを環境へ自動インストールしません。
+Mermaid CLI の標準的なインストールでは、\textbf{Node.js} と \texttt{npm}（または \texttt{npx}）を利用します。
+一方、パッケージオプション \texttt{Renderer} に
+\texttt{npx -y @mermaid-js/mermaid-cli …} のように \textbf{\texttt{npx -y}} を含むコマンドを指定した場合は、\texttt{npx} の仕様として必要に応じてパッケージの
+\textbf{取得・インストール}が行われます（ネットワークアクセスを伴います）。
+
+\texttt{lualatex} 実行時には、\texttt{Renderer} オプションで別コマンドを指さない限り、
+既定のレンダラ \texttt{mmdc} が同じ環境から見える必要があります（指す場合はそのコマンドが見えること）。
+Mermaid CLI はヘッドレス Chromium（Puppeteer）に依存します。詳細は Mermaid CLI の
+ドキュメントを参照してください。
+
+\section{ライセンスとソース}
+
+\LaTeX{} Project Public License（LPPL）1.3c 以降の下で配布されます。\\
+ソースと issue: \url{https://github.com/ryoya9826/ltMermaid}
+
+\section{使い方}
+
+\subsection{最小構成の文書}
+
+\begin{verbatim}
+\documentclass{article}
+\usepackage{ltmermaid}
+
+\begin{document}
+\begin{mermaid}
+flowchart LR
+  A --> B
+\end{mermaid}
+\end{document}
+\end{verbatim}
+
+コンパイル例:
+\begin{verbatim}
+lualatex -shell-escape yourfile.tex
+\end{verbatim}
+
+\subsection{レイアウトの調整（任意）}
+
+既定では \texttt{adjustbox} で取り込んだ図をスケールします。例:
+\begin{verbatim}
+\MermaidAdjustBoxOpts{max width=0.8\linewidth,center}
+\MermaidAdjustBoxOpts{max width=0.9\linewidth,center,valign=T}
+\end{verbatim}
+
+\subsection{Beamer}
+
+\texttt{beamer} クラスでも利用できます。\texttt{mermaid} 環境を含む各フレームには
+\texttt{fragile} オプションが必要です（環境が \texttt{fancyvrb} に依存するため）。
+例: \verb|\begin{frame}[fragile]{図}|。
+
+\begin{verbatim}
+\documentclass{beamer}
+\usepackage{ltmermaid}
+
+\begin{document}
+\begin{frame}[fragile]{Mermaid}
+\begin{mermaid}
+flowchart LR
+  A --> B
+\end{mermaid}
+\end{frame}
+\end{document}
+\end{verbatim}
+
+\section{パッケージオプション（省略可能）}
+
+{\small
+\begin{itemize}
+\item \textbf{\texttt{Renderer}}:
+  レンダラコマンドの接頭辞。省略時は既定で \texttt{mmdc}。
+  \texttt{npx -y @mermaid-js/mermaid-cli}などのように明示的に指定することが可能です。
+\end{itemize}
+\par}
+
+\section{ユーザー命令}
+
+{\small
+\begin{itemize}
+\item \textbf{\cmd{MermaidRendererOptions}\texttt{\{...\}}:}
+  \texttt{-i} / \texttt{-o} の前に付ける追加の CLI 引数（PDF fit 有効時は組み込みの \texttt{-f} の後に結合）。
+\item \textbf{\cmd{MermaidNoPdfFit}:}
+  \texttt{mmdc} の \texttt{-f} / \texttt{--pdfFit} を無効化（デフォルトでは \emph{有効}）。
+\item \textbf{\cmd{MermaidAdjustBoxOpts}\texttt{\{...\}}:}
+  \cmd{includegraphics} を囲む \texttt{adjustbox} のキー一式（デフォルトでは
+  \texttt{max width=0.9}\cmd{linewidth}\texttt{,center}）。
+\item \textbf{\cmd{MermaidGraphicsOpts}\texttt{\{...\}}:}
+  \cmd{includegraphics} への追加キー（回転、\texttt{trim} など）。
+  幅は通常 \cmd{MermaidAdjustBoxOpts} で指定します。
+\end{itemize}
+\par}
+
+\section{出力ファイル}
+
+中間ファイル \texttt{.mmd} と \texttt{.pdf} は、コンパイルを実行したディレクトリから見た
+相対パス \texttt{mermaid/} に書き出されます。\texttt{-output-directory} 使用時は、
+環境変数 \texttt{TEXMF\_OUTPUT\_DIRECTORY} が指すディレクトリ内の \texttt{mermaid/} に
+出力されます。
+
+\section{図の例}
+
+\textbf{左}に入力した \texttt{mermaid} 環境のソース、
+\textbf{右}にレンダリング結果を示します。
+
+\begin{figure}[H]
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}\footnotesize
+\begin{verbatim}
+\begin{mermaid}
+flowchart TB
+  subgraph client["クライアント層"]
+    WEB["ブラウザ / SPA"]
+    CLI["CLI / バッチ"]
+  end
+  subgraph edge["エッジ"]
+    GW{{API Gateway}}
+  end
+  subgraph svc["サービス層"]
+    AUTH["認証"]
+    API["業務 API"]
+    WORK["ワーカー"]
+  end
+  subgraph store["データ"]
+    DB[("PostgreSQL")]
+    CACHE[("Redis")]
+    QUEUE["ジョブキュー"]
+  end
+  WEB --> GW
+  CLI --> GW
+  GW --> AUTH
+  GW --> API
+  API --> WORK
+  API --> DB
+  API --> CACHE
+  WORK --> QUEUE
+  WORK --> DB
+\end{mermaid}
+\end{verbatim}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.54\textwidth}
+\vspace{0pt}\centering
+\begin{mermaid}
+flowchart TB
+  subgraph client["クライアント層"]
+    WEB["ブラウザ / SPA"]
+    CLI["CLI / バッチ"]
+  end
+  subgraph edge["エッジ"]
+    GW{{API Gateway}}
+  end
+  subgraph svc["サービス層"]
+    AUTH["認証"]
+    API["業務 API"]
+    WORK["ワーカー"]
+  end
+  subgraph store["データ"]
+    DB[("PostgreSQL")]
+    CACHE[("Redis")]
+    QUEUE["ジョブキュー"]
+  end
+  WEB --> GW
+  CLI --> GW
+  GW --> AUTH
+  GW --> API
+  API --> WORK
+  API --> DB
+  API --> CACHE
+  WORK --> QUEUE
+  WORK --> DB
+\end{mermaid}
+\end{minipage}
+\caption{多層アーキテクチャ（サブグラフ・各種ノード形）}
+\end{figure}
+
+\begin{figure}[H]
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}\footnotesize
+\begin{verbatim}
+\begin{mermaid}
+sequenceDiagram
+  autonumber
+  actor U as 利用者
+  participant B as ブラウザ
+  participant A as 認証API
+  participant S as 業務API
+  participant D as DB
+  U->>B: ログイン
+  B->>+A: POST /token
+  A->>D: ユーザー検証
+  D-->>A: レコード
+  A-->>-B: JWT
+  B->>+S: GET /orders（Bearer）
+  S->>A: トークン検証
+  A-->>S: クレーム
+  S->>D: SELECT
+  D-->>S: 行集合
+  S-->>-B: 200 JSON
+  B-->>U: 一覧表示
+\end{mermaid}
+\end{verbatim}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.54\textwidth}
+\vspace{0pt}\centering
+\begin{mermaid}
+sequenceDiagram
+  autonumber
+  actor U as 利用者
+  participant B as ブラウザ
+  participant A as 認証API
+  participant S as 業務API
+  participant D as DB
+  U->>B: ログイン
+  B->>+A: POST /token
+  A->>D: ユーザー検証
+  D-->>A: レコード
+  A-->>-B: JWT
+  B->>+S: GET /orders（Bearer）
+  S->>A: トークン検証
+  A-->>S: クレーム
+  S->>D: SELECT
+  D-->>S: 行集合
+  S-->>-B: 200 JSON
+  B-->>U: 一覧表示
+\end{mermaid}
+\end{minipage}
+\caption{シーケンス図（番号・非同期矢印・複数参加者）}
+\end{figure}
+
+\begin{figure}[H]
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}\footnotesize
+\begin{verbatim}
+\begin{mermaid}
+stateDiagram-v2
+  [*] --> Draft: 新規作成
+  Draft --> Review: 提出
+  Review --> Draft: 差し戻し
+  Review --> Approved: 承認
+  Approved --> Published: 公開
+  Published --> Archived: 終了
+  Review --> Rejected: 却下
+  Rejected --> [*]
+  Archived --> [*]
+\end{mermaid}
+\end{verbatim}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.54\textwidth}
+\vspace{0pt}\centering
+\begin{mermaid}
+stateDiagram-v2
+  [*] --> Draft: 新規作成
+  Draft --> Review: 提出
+  Review --> Draft: 差し戻し
+  Review --> Approved: 承認
+  Approved --> Published: 公開
+  Published --> Archived: 終了
+  Review --> Rejected: 却下
+  Rejected --> [*]
+  Archived --> [*]
+\end{mermaid}
+\end{minipage}
+\caption{状態遷移（\texttt{stateDiagram-v2}）}
+\end{figure}
+
+\section{更新履歴}
+
+\noindent
+\textbf{Version 0.2}（2026-04-13）: \texttt{MERMAID\_MMDC} / \texttt{MERMAID\_MMDC\_OPTIONS} を廃止。
+
+\smallskip
+\noindent
+\textbf{Version 0.1}（2026-04-08）: 初版。
+
+\end{document}
