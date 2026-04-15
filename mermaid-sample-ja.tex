@@ -1,13 +1,32 @@
-% ltmermaid.sty の説明と使用例（日本語版）
-% コンパイル例: lualatex -shell-escape sample-ja.tex
-% 文書クラス: BXjscls の bxjsarticle（LuaLaTeX + ja=standard）
-\documentclass[lualatex,luatex,ja=standard,a4paper,11pt]{bxjsarticle}
+\documentclass[uplatex,dvipdfmx,ja = standard,a4paper,11pt]{bxjsarticle}
 \usepackage{array}
 \usepackage{tabularx}
 \usepackage{float}
-\usepackage{ltmermaid}
+\usepackage{mermaid}
 \usepackage[hidelinks]{hyperref}
 \usepackage{bxghost}	
+\usepackage{bxtexlogo}
+\usepackage{listings,jvlisting}
+\usepackage{xcolor}
+
+\lstset{
+  basicstyle={\ttfamily},
+  identifierstyle={\small},
+  commentstyle={\small\itshape},
+  keywordstyle={\small\bfseries},
+  ndkeywordstyle={\small},
+  stringstyle={\small\ttfamily},
+  frame={tb},
+  breaklines=true,
+  columns=[l]{fullflexible},
+  numbers=left,
+  xrightmargin=0zw,
+  xleftmargin=3zw,
+  numberstyle={\scriptsize},
+  stepnumber=1,
+  numbersep=1zw,
+  lineskip=-0.5ex
+}
 
 \makeatletter
 \def\m@syu@space@char{^^`}
@@ -38,17 +57,18 @@
 % 表の全幅レイアウト: 第2列を折り返し（X）
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
 
-\title{\texttt{ltmermaid} パッケージ}
-\author{安藤 遼哉（Ryoya Ando）}
-\date{2026-04-13}
+\title{\texttt{mermaid} パッケージ（\texttt{mermaid.sty}）}
+\author{安藤 遼哉（Ryoya Ando）\\\url{https://ryoya9826.github.io/}}
+\date{\today}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
 \noindent
-\texttt{ltmermaid} パッケージは、\textbf{LuaLaTeX} を使うことにより\LaTeXe コンパイル時に Mermaid 図を同時にレンダリングし、PDFに埋め込みます。Mermaid 図のレンダリングに Mermaid CLI などのツールを利用する必要があるため、シェルエスケープ（\verb|-shell-escape|）が必要です。\texttt{lualatex} を実行する
-マシンには、動作する \textbf{Node.js}、\texttt{mmdc}（または \texttt{npx}）、および CLI 用のヘッドレス Chromium が利用できる必要があります。
+\texttt{mermaid.sty} は \texttt{shellesc} や \verb|\write18| を介して Mermaid CLI を起動し、\LaTeXe{} におけるコンパイル時に Mermaid 図をレンダリングして PDF として取り込むパッケージです。
+\upLaTeX、\pdfLaTeX、\LuaLaTeX などのエンジンで利用可能です。
+Mermaid 図のレンダリングには、Mermaid CLI（\texttt{mmdc} など）とヘッドレス Chromium（Puppeteer）が必要です。また、コンパイルの際は必ずシェルエスケープ（\verb|-shell-escape|）を有効にしてください。
 \end{abstract}
 
 \section{動作条件}
@@ -58,12 +78,10 @@
   \hline
   \textbf{項目} & \textbf{条件} \\
   \hline
-  \TeX{} エンジン &
-    LuaLaTeX（\texttt{lualatex}） \\
   フォーマット &
     \LaTeXe \\
   シェルエスケープ &
-    \texttt{lualatex -shell-escape} （\texttt{os.execute} 経由で CLI を起動します） \\
+    \texttt{-shell-escape}（\texttt{shellesc} / \verb|\write18| 経由で CLI を起動） \\
   外部ツール &
     Mermaid CLI（\texttt{mmdc}）\\
   \hline
@@ -71,29 +89,28 @@
 
 \medskip
 
-Mermaid CLI が環境にない場合、\texttt{ltmermaid} は \texttt{mmdc} などを環境へ自動インストールしません。
-Mermaid CLI の標準的なインストールでは、\textbf{Node.js} と \texttt{npm}（または \texttt{npx}）を利用します。
-一方、パッケージオプション \texttt{Renderer} に
-\texttt{npx -y @mermaid-js/mermaid-cli …} のように \textbf{\texttt{npx -y}} を含むコマンドを指定した場合は、\texttt{npx} の仕様として必要に応じてパッケージの
-\textbf{取得・インストール}が行われます（ネットワークアクセスを伴います）。
+環境内に Mermaid CLI が存在しない場合でも、\texttt{mermaid.sty} が \texttt{mmdc} などを自動的にインストールすることはありません。
+Mermaid CLI を一般的な方法でインストールするには、\textbf{Node.js} と \texttt{npm}（または \texttt{npx}）を利用します。
+ただし、パッケージオプションの \texttt{Renderer} に \texttt{npx -y @mermaid-js/mermaid-cli …} のように \textbf{\texttt{npx -y}} を含むコマンドを指定した場合は、\texttt{npx} の仕様により、必要に応じてパッケージの\textbf{取得およびインストール}が動的に行われます（ネットワーク通信を伴います）。
 
-\texttt{lualatex} 実行時には、\texttt{Renderer} オプションで別コマンドを指さない限り、
-既定のレンダラ \texttt{mmdc} が同じ環境から見える必要があります（指す場合はそのコマンドが見えること）。
-Mermaid CLI はヘッドレス Chromium（Puppeteer）に依存します。詳細は Mermaid CLI の
-ドキュメントを参照してください。
+コンパイルを実行する際、\texttt{Renderer} オプションで別のコマンドを指定しない限り、既定のレンダラである \texttt{mmdc} へのパスが通っており、実行可能である必要があります（別のコマンドを指定した場合も同様です）。
+なお、Mermaid CLI はヘッドレス Chromium（Puppeteer）に依存しています。詳細は Mermaid CLI の公式ドキュメントを参照してください。
+
+ログは \texttt{\string\typeout} で \texttt{[mermaid]} プレフィックス付きで出力されます。トラブル時は \texttt{mermaid/} 下の \texttt{.err} を確認してください。
 
 \section{ライセンスとソース}
 
-\LaTeX{} Project Public License（LPPL）1.3c 以降の下で配布されます。\\
+\LaTeX{} Project Public License（LPPL）1.3c 以降の下で配布されます。
+
 ソースと issue: \url{https://github.com/ryoya9826/ltMermaid}
 
 \section{使い方}
 
 \subsection{最小構成の文書}
 
-\begin{verbatim}
+\begin{lstlisting}
 \documentclass{article}
-\usepackage{ltmermaid}
+\usepackage{mermaid}
 
 \begin{document}
 \begin{mermaid}
@@ -101,20 +118,22 @@ flowchart LR
   A --> B
 \end{mermaid}
 \end{document}
-\end{verbatim}
+\end{lstlisting}
 
 コンパイル例:
 \begin{verbatim}
+pdflatex -shell-escape yourfile.tex
 lualatex -shell-escape yourfile.tex
+uplatex -shell-escape yourfile.tex && dvipdfmx yourfile.dvi
 \end{verbatim}
 
 \subsection{レイアウトの調整（任意）}
 
 既定では \texttt{adjustbox} で取り込んだ図をスケールします。例:
-\begin{verbatim}
+\begin{lstlisting}
 \MermaidAdjustBoxOpts{max width=0.8\linewidth,center}
 \MermaidAdjustBoxOpts{max width=0.9\linewidth,center,valign=T}
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Beamer}
 
@@ -122,9 +141,9 @@ lualatex -shell-escape yourfile.tex
 \texttt{fragile} オプションが必要です（環境が \texttt{fancyvrb} に依存するため）。
 例: \verb|\begin{frame}[fragile]{図}|。
 
-\begin{verbatim}
+\begin{lstlisting}
 \documentclass{beamer}
-\usepackage{ltmermaid}
+\usepackage{mermaid}
 
 \begin{document}
 \begin{frame}[fragile]{Mermaid}
@@ -134,22 +153,21 @@ flowchart LR
 \end{mermaid}
 \end{frame}
 \end{document}
-\end{verbatim}
+\end{lstlisting}
 
 \section{パッケージオプション（省略可能）}
 
-{\small
 \begin{itemize}
+\small
 \item \textbf{\texttt{Renderer}}:
-  レンダラコマンドの接頭辞。省略時は既定で \texttt{mmdc}。
-  \texttt{npx -y @mermaid-js/mermaid-cli}などのように明示的に指定することが可能です。
+  利用するレンダラコマンド。省略時は \texttt{mmdc} が使用されます。
+  \texttt{npx -y @mermaid-js/mermaid-cli} のように、使用するコマンドを明示的に指定することも可能です。
 \end{itemize}
-\par}
 
 \section{ユーザー命令}
 
-{\small
 \begin{itemize}
+\small
 \item \textbf{\cmd{MermaidRendererOptions}\texttt{\{...\}}:}
   \texttt{-i} / \texttt{-o} の前に付ける追加の CLI 引数（PDF fit 有効時は組み込みの \texttt{-f} の後に結合）。
 \item \textbf{\cmd{MermaidNoPdfFit}:}
@@ -161,14 +179,10 @@ flowchart LR
   \cmd{includegraphics} への追加キー（回転、\texttt{trim} など）。
   幅は通常 \cmd{MermaidAdjustBoxOpts} で指定します。
 \end{itemize}
-\par}
 
 \section{出力ファイル}
 
-中間ファイル \texttt{.mmd} と \texttt{.pdf} は、コンパイルを実行したディレクトリから見た
-相対パス \texttt{mermaid/} に書き出されます。\texttt{-output-directory} 使用時は、
-環境変数 \texttt{TEXMF\_OUTPUT\_DIRECTORY} が指すディレクトリ内の \texttt{mermaid/} に
-出力されます。
+中間ファイルである \texttt{.mmd} と、レンダリング結果の \texttt{.pdf} は、コンパイルを実行したディレクトリ内の \texttt{mermaid/} フォルダに書き出されます。ファイル名には \texttt{\jobname-mermaid-1.mmd} や \texttt{\jobname-mermaid-1.pdf} のように、\texttt{\jobname}（ジョブ名）と通し番号が付与されます。
 
 \section{図の例}
 
@@ -177,8 +191,8 @@ flowchart LR
 
 \begin{figure}[H]
 \begin{minipage}[t]{0.42\textwidth}
-\vspace{0pt}\footnotesize
-\begin{verbatim}
+\vspace{0pt}
+\begin{lstlisting}[basicstyle=\footnotesize\ttfamily]
 \begin{mermaid}
 flowchart TB
   subgraph client["クライアント層"]
@@ -208,7 +222,7 @@ flowchart TB
   WORK --> QUEUE
   WORK --> DB
 \end{mermaid}
-\end{verbatim}
+\end{lstlisting}
 \end{minipage}%
 \hfill
 \begin{minipage}[t]{0.54\textwidth}
@@ -248,8 +262,8 @@ flowchart TB
 
 \begin{figure}[H]
 \begin{minipage}[t]{0.42\textwidth}
-\vspace{0pt}\footnotesize
-\begin{verbatim}
+\vspace{0pt}
+\begin{lstlisting}[basicstyle=\footnotesize\ttfamily]
 \begin{mermaid}
 sequenceDiagram
   autonumber
@@ -271,7 +285,7 @@ sequenceDiagram
   S-->>-B: 200 JSON
   B-->>U: 一覧表示
 \end{mermaid}
-\end{verbatim}
+\end{lstlisting}
 \end{minipage}%
 \hfill
 \begin{minipage}[t]{0.54\textwidth}
@@ -303,8 +317,8 @@ sequenceDiagram
 
 \begin{figure}[H]
 \begin{minipage}[t]{0.42\textwidth}
-\vspace{0pt}\footnotesize
-\begin{verbatim}
+\vspace{0pt}
+\begin{lstlisting}[basicstyle=\footnotesize\ttfamily]
 \begin{mermaid}
 stateDiagram-v2
   [*] --> Draft: 新規作成
@@ -317,7 +331,7 @@ stateDiagram-v2
   Rejected --> [*]
   Archived --> [*]
 \end{mermaid}
-\end{verbatim}
+\end{lstlisting}
 \end{minipage}%
 \hfill
 \begin{minipage}[t]{0.54\textwidth}
@@ -340,11 +354,9 @@ stateDiagram-v2
 
 \section{更新履歴}
 
-\noindent
-\textbf{Version 0.2}（2026-04-13）: \texttt{MERMAID\_MMDC} / \texttt{MERMAID\_MMDC\_OPTIONS} を廃止。
-
-\smallskip
-\noindent
-\textbf{Version 0.1}（2026-04-08）: 初版。
+\begin{description}
+\item[Version 1.0（2026-04-16）] \texttt{mermaid.sty} 安定版。
+\item[Version 0.1（2026-04-15）] 初版（v1.0 に置き換え）。
+\end{description}
 
 \end{document}

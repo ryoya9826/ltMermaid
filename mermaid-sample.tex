@@ -1,0 +1,375 @@
+% mermaid.sty documentation and examples (English; faithful translation of mermaid-sample-ja.tex)
+% Compilation (all require -shell-escape):
+%   pdflatex / xelatex / lualatex:  <engine> -shell-escape mermaid-sample.tex
+%   upLaTeX:  uplatex -shell-escape mermaid-sample.tex  →  dvipdfmx mermaid-sample.dvi
+% The Japanese version uses bxjsarticle (upLaTeX + ja=standard); this file uses article.
+\documentclass[11pt,a4paper]{article}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{mermaid}
+\usepackage[hidelinks]{hyperref}
+\usepackage{bxtexlogo}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstset{
+  basicstyle={\ttfamily},
+  identifierstyle={\small},
+  commentstyle={\small\itshape},
+  keywordstyle={\small\bfseries},
+  ndkeywordstyle={\small},
+  stringstyle={\small\ttfamily},
+  frame={tb},
+  breaklines=true,
+  columns=[l]{fullflexible},
+  numbers=left,
+  xrightmargin=0pt,
+  xleftmargin=1.5em,
+  numberstyle={\scriptsize},
+  stepnumber=1,
+  numbersep=0.5em,
+  lineskip=-0.5ex
+}
+
+\makeatletter
+\def\m@syu@space@char{^^`}
+
+\def\m@syu@string#1{%
+  \@tfor\m@syu@member:=#1\do{%
+    \ifx\m@syu@member\m@syu@space@char
+      \textvisiblespace
+    \else
+      \ifx\m@syu@member\empty
+        \textvisiblespace
+      \else\m@syu@member\fi
+    \fi}%
+}
+
+\def\m@syu@removespace#1{%
+  \def\m@syu@removedspace{}%
+  \@tfor\m@syu@member:=#1\do{%
+    \ifx\m@syu@member\empty
+    \edef\m@syu@removedspace{\m@syu@removedspace\m@syu@member\m@syu@space@char}%
+  \else
+    \edef\m@syu@removedspace{\m@syu@removedspace\m@syu@member}%
+  \fi}%
+}
+
+\newcommand{\cmd}[2][\texttt]{#1{\symbol{92}\m@syu@string{#2}}}
+\makeatother
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\title{The \texttt{mermaid} package (\texttt{mermaid.sty})}
+\author{Ryoya Ando \\\url{https://ryoya9826.github.io/}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+\texttt{mermaid.sty} invokes the Mermaid CLI via \texttt{shellesc} and \verb|\write18|, renders Mermaid diagrams during a \LaTeXe{} run, and embeds them as PDF.
+It can be used with engines such as \upLaTeX, \pdfLaTeX, and \LuaLaTeX.
+Rendering Mermaid diagrams requires the Mermaid CLI (\texttt{mmdc}, etc.) and headless Chromium (Puppeteer).
+Compile with shell escape enabled (\verb|-shell-escape|).
+\end{abstract}
+
+\section{Operating conditions}
+
+\noindent
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}L@{}}
+  \hline
+  \textbf{Item} & \textbf{Condition} \\
+  \hline
+  Format &
+    \LaTeXe \\
+  Shell escape &
+    \texttt{-shell-escape} (invoke the CLI via \texttt{shellesc} / \verb|\write18|) \\
+  External tool &
+    Mermaid CLI (\texttt{mmdc}) \\
+  \hline
+\end{tabularx}
+
+\medskip
+
+If the Mermaid CLI is not present in your environment, \texttt{mermaid.sty} does not auto-install \texttt{mmdc} or similar.
+A typical Mermaid CLI installation uses \textbf{Node.js} with \texttt{npm} (or \texttt{npx}).
+If you set the package option \texttt{Renderer} to a command that includes \textbf{\texttt{npx -y}}, for example
+\texttt{npx -y @mermaid-js/mermaid-cli \ldots}, then \texttt{npx} may fetch and install packages as needed
+(\textbf{network access} may be required).
+
+When compiling, unless the \texttt{Renderer} option names another command, the default renderer \texttt{mmdc}
+must be visible in the same environment (if you set \texttt{Renderer}, that command must be visible instead).
+The Mermaid CLI depends on headless Chromium (Puppeteer); see the Mermaid CLI documentation for details.
+
+Log output uses \texttt{\string\typeout} with the \texttt{[mermaid]} prefix. If something goes wrong, check the \texttt{.err} files under \texttt{mermaid/}.
+
+\section{License and source}
+
+\LaTeX{} Project Public License (LPPL) 1.3c or later.\\
+Source and issues: \url{https://github.com/ryoya9826/ltMermaid}
+
+\section{Usage}
+
+\subsection{Minimal document}
+
+\begin{lstlisting}
+\documentclass{article}
+\usepackage{mermaid}
+
+\begin{document}
+\begin{mermaid}
+flowchart LR
+  A --> B
+\end{mermaid}
+\end{document}
+\end{lstlisting}
+
+Compile example:
+\begin{verbatim}
+pdflatex -shell-escape yourfile.tex
+lualatex -shell-escape yourfile.tex
+uplatex -shell-escape yourfile.tex && dvipdfmx yourfile.dvi
+\end{verbatim}
+
+\subsection{Layout adjustments (optional)}
+
+By default, graphics included via \texttt{adjustbox} are scaled. Example:
+\begin{lstlisting}
+\MermaidAdjustBoxOpts{max width=0.8\linewidth,center}
+\MermaidAdjustBoxOpts{max width=0.9\linewidth,center,valign=T}
+\end{lstlisting}
+
+\subsection{Beamer}
+
+The package can also be used with the \texttt{beamer} class. Every frame that contains a \texttt{mermaid}
+environment must use the \texttt{fragile} option (the environment depends on \texttt{fancyvrb}).
+Example: \verb|\begin{frame}[fragile]{Figure}|.
+
+\begin{lstlisting}
+\documentclass{beamer}
+\usepackage{mermaid}
+
+\begin{document}
+\begin{frame}[fragile]{Mermaid}
+\begin{mermaid}
+flowchart LR
+  A --> B
+\end{mermaid}
+\end{frame}
+\end{document}
+\end{lstlisting}
+
+\section{Package options (optional)}
+
+{\small
+\begin{itemize}
+\item \textbf{\texttt{Renderer}}:
+  Prefix for the renderer command. If omitted, \texttt{mmdc} is the default.
+  You can specify it explicitly, for example \texttt{npx -y @mermaid-js/mermaid-cli}.
+\end{itemize}
+\par}
+
+\section{User commands}
+
+{\small
+\begin{itemize}
+\item \textbf{\cmd{MermaidRendererOptions}\texttt{\{...\}}:}
+  Additional CLI arguments before \texttt{-i} / \texttt{-o} (when PDF fit is enabled, merged after the built-in \texttt{-f}).
+\item \textbf{\cmd{MermaidNoPdfFit}:}
+  Disables \texttt{-f} / \texttt{--pdfFit} for \texttt{mmdc} (by default this is \emph{enabled}).
+\item \textbf{\cmd{MermaidAdjustBoxOpts}\texttt{\{...\}}:}
+  Full list of \texttt{adjustbox} keys around \cmd{includegraphics} (default:
+  \texttt{max width=0.9}\cmd{linewidth}\texttt{,center}).
+\item \textbf{\cmd{MermaidGraphicsOpts}\texttt{\{...\}}:}
+  Additional keys for \cmd{includegraphics} (rotation, \texttt{trim}, etc.).
+  Width is usually set with \cmd{MermaidAdjustBoxOpts}.
+\end{itemize}
+\par}
+
+\section{Output files}
+
+Intermediate \texttt{.mmd} files and rendered \texttt{.pdf} files are written under the \texttt{mermaid/}
+directory in the directory from which you run the compiler. File names are of the form
+\texttt{\jobname-mermaid-1.mmd}, \texttt{\jobname-mermaid-1.pdf}, \ldots, using \texttt{\jobname} (the job name) and a running index per diagram.
+
+\section{Diagram examples}
+
+\textbf{Left:} source typed into the \texttt{mermaid} environment.
+\textbf{Right:} rendered result.
+
+\begin{figure}[H]
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}
+\begin{lstlisting}[basicstyle=\footnotesize\ttfamily]
+\begin{mermaid}
+flowchart TB
+  subgraph client["Client tier"]
+    WEB["Browser / SPA"]
+    CLI["CLI / batch"]
+  end
+  subgraph edge["Edge"]
+    GW{{API Gateway}}
+  end
+  subgraph svc["Service tier"]
+    AUTH["Auth"]
+    API["Business API"]
+    WORK["Workers"]
+  end
+  subgraph store["Data"]
+    DB[("PostgreSQL")]
+    CACHE[("Redis")]
+    QUEUE["Job queue"]
+  end
+  WEB --> GW
+  CLI --> GW
+  GW --> AUTH
+  GW --> API
+  API --> WORK
+  API --> DB
+  API --> CACHE
+  WORK --> QUEUE
+  WORK --> DB
+\end{mermaid}
+\end{lstlisting}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.54\textwidth}
+\vspace{0pt}\centering
+\begin{mermaid}
+flowchart TB
+  subgraph client["Client tier"]
+    WEB["Browser / SPA"]
+    CLI["CLI / batch"]
+  end
+  subgraph edge["Edge"]
+    GW{{API Gateway}}
+  end
+  subgraph svc["Service tier"]
+    AUTH["Auth"]
+    API["Business API"]
+    WORK["Workers"]
+  end
+  subgraph store["Data"]
+    DB[("PostgreSQL")]
+    CACHE[("Redis")]
+    QUEUE["Job queue"]
+  end
+  WEB --> GW
+  CLI --> GW
+  GW --> AUTH
+  GW --> API
+  API --> WORK
+  API --> DB
+  API --> CACHE
+  WORK --> QUEUE
+  WORK --> DB
+\end{mermaid}
+\end{minipage}
+\caption{Multi-layer architecture (subgraphs and node shapes)}
+\end{figure}
+
+\begin{figure}[H]
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}
+\begin{lstlisting}[basicstyle=\footnotesize\ttfamily]
+\begin{mermaid}
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant B as Browser
+  participant A as Auth API
+  participant S as Business API
+  participant D as DB
+  U->>B: Log in
+  B->>+A: POST /token
+  A->>D: Verify user
+  D-->>A: Row
+  A-->>-B: JWT
+  B->>+S: GET /orders (Bearer)
+  S->>A: Validate token
+  A-->>S: Claims
+  S->>D: SELECT
+  D-->>S: Rows
+  S-->>-B: 200 JSON
+  B-->>U: List view
+\end{mermaid}
+\end{lstlisting}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.54\textwidth}
+\vspace{0pt}\centering
+\begin{mermaid}
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant B as Browser
+  participant A as Auth API
+  participant S as Business API
+  participant D as DB
+  U->>B: Log in
+  B->>+A: POST /token
+  A->>D: Verify user
+  D-->>A: Row
+  A-->>-B: JWT
+  B->>+S: GET /orders (Bearer)
+  S->>A: Validate token
+  A-->>S: Claims
+  S->>D: SELECT
+  D-->>S: Rows
+  S-->>-B: 200 JSON
+  B-->>U: List view
+\end{mermaid}
+\end{minipage}
+\caption{Sequence diagram (numbering, asynchronous arrows, multiple participants)}
+\end{figure}
+
+\begin{figure}[H]
+\begin{minipage}[t]{0.42\textwidth}
+\vspace{0pt}
+\begin{lstlisting}[basicstyle=\footnotesize\ttfamily]
+\begin{mermaid}
+stateDiagram-v2
+  [*] --> Draft: Create
+  Draft --> Review: Submit
+  Review --> Draft: Send back
+  Review --> Approved: Approve
+  Approved --> Published: Publish
+  Published --> Archived: End
+  Review --> Rejected: Reject
+  Rejected --> [*]
+  Archived --> [*]
+\end{mermaid}
+\end{lstlisting}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.54\textwidth}
+\vspace{0pt}\centering
+\begin{mermaid}
+stateDiagram-v2
+  [*] --> Draft: Create
+  Draft --> Review: Submit
+  Review --> Draft: Send back
+  Review --> Approved: Approve
+  Approved --> Published: Publish
+  Published --> Archived: End
+  Review --> Rejected: Reject
+  Rejected --> [*]
+  Archived --> [*]
+\end{mermaid}
+\end{minipage}
+\caption{State transitions (\texttt{stateDiagram-v2})}
+\end{figure}
+
+\section{Revision history}
+
+\noindent
+\textbf{Version 1.0} (2026-04-16): \texttt{mermaid.sty} stable release.
+
+\smallskip
+\noindent
+\textbf{Version 0.1} (2026-04-15): Initial release (superseded by v1.0).
+
+\end{document}

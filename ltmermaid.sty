@@ -1,14 +1,6 @@
 % ltmermaid.sty -- Embed Mermaid diagrams in LaTeX (LuaLaTeX).
-% Writes each diagram to mermaid/<jobname>-mermaid-N.mmd, runs the Mermaid CLI
-% to produce PDF (vector), then includes it with adjustbox + graphicx. With -output-directory,
-% uses TEXMF_OUTPUT_DIRECTORY/mermaid/ (aux files under the build dir).
 %
-% Intended for local compilation. Requires Mermaid CLI (mmdc), e.g. via Node:
-%   npm install -g @mermaid-js/mermaid-cli
-% or npx: \usepackage[Renderer={npx -y @mermaid-js/mermaid-cli}]{ltmermaid}
-% Compile with: lualatex -shell-escape <file>.tex
-%
-% Copyright (C) 2026 Ryoya Ando (https://github.com/ryoya9826)
+% Copyright (C) 2026 Ryoya Ando (https://ryoya9826.github.io/)
 %
 % This work may be distributed and/or modified under the
 % conditions of the LaTeX Project Public License, either version 1.3c
@@ -17,33 +9,28 @@
 %   https://www.latex-project.org/lppl.txt
 % and version 1.3c or later is part of all distributions of LaTeX
 % version 2008/05/04 or later.
-%
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{ltmermaid}[2026/04/13 v0.2 Mermaid via Mermaid CLI / PDF (Ryoya Ando)]
+\ProvidesPackage{ltmermaid}[2026/04/16 v1.0 Mermaid via Mermaid CLI / PDF]
 \RequirePackage{ifluatex}
 \ifluatex\else
   \PackageError{ltmermaid}{This package requires LuaLaTeX (lualatex).}{}
   \expandafter\endinput
 \fi
-\RequirePackage{kvoptions}
-\SetupKeyvalOptions{family=mermaid,prefix=mermaid@,setkeys=\kvsetkeys}
-\DeclareStringOption[]{Renderer}
-\ProcessKeyvalOptions*
 \RequirePackage{graphicx}
 \RequirePackage{adjustbox}
 \RequirePackage{fancyvrb}
 \RequirePackage{luacode}
-
+\RequirePackage{kvoptions}
+\SetupKeyvalOptions{family=mermaid,prefix=mermaid@,setkeys=\kvsetkeys}
+\DeclareStringOption[]{Renderer}
+\ProcessKeyvalOptions*
 \begin{luacode*}
 mermaid_cli = mermaid_cli or {}
 mermaid_cli.default_renderer = "mmdc"
-
 local lfs = require("lfs")
-
 local function shq(p)
   return "'" .. string.gsub(p, "'", "'\\''") .. "'"
 end
-
 local function abspath(rel)
   rel = (rel or ""):gsub("\\", "/")
   if rel == "" then return rel end
@@ -56,7 +43,6 @@ local function abspath(rel)
   end
   return cwd .. "/" .. rel
 end
-
 local function ensure_dir(path)
   path = path:gsub("\\", "/")
   local attrs = lfs.attributes(path)
@@ -72,7 +58,6 @@ local function ensure_dir(path)
     tex.error("ltmermaid: cannot create directory (" .. tostring(err) .. "): " .. path)
   end
 end
-
 local function mermaid_root_abs()
   local out = os.getenv("TEXMF_OUTPUT_DIRECTORY")
   if out and out ~= "" then
@@ -84,7 +69,6 @@ local function mermaid_root_abs()
   end
   return abspath("mermaid")
 end
-
 function mermaid_cli.ensure_mermaid_root()
   if mermaid_cli._root_ready then
     return
@@ -92,34 +76,29 @@ function mermaid_cli.ensure_mermaid_root()
   ensure_dir(mermaid_root_abs())
   mermaid_cli._root_ready = true
 end
-
 function mermaid_cli.path_for_diag(n, ext)
   mermaid_cli.ensure_mermaid_root()
   n = tonumber(n)
   local name = tex.jobname .. "-mermaid-" .. tostring(n) .. "." .. ext
   return "mermaid/" .. name
 end
-
 function mermaid_cli.resolve_path(rel)
   rel = (rel or ""):gsub("\\", "/")
   local fname = rel:match("^mermaid/(.+)$") or rel
   return mermaid_root_abs() .. "/" .. fname
 end
-
 local function resolve_renderer(tex_cmd)
   if tex_cmd ~= nil and tex_cmd ~= "" then
     return tex_cmd
   end
   return mermaid_cli.default_renderer
 end
-
 local function resolve_extra_args(tex_args)
   if tex_args ~= nil and tex_args ~= "" then
     return tex_args
   end
   return ""
 end
-
 local function interpret_execute_result(a, b, c)
   if a == nil then
     return "spawn_failed", nil
@@ -151,13 +130,11 @@ local function interpret_execute_result(a, b, c)
   end
   return "unknown", nil
 end
-
 local function mermaid_log(msg)
   local line = "[ltmermaid] " .. msg
   texio.write_nl("log", line)
   texio.write_nl("term", line)
 end
-
 local function file_size_bytes(path)
   local sz = lfs.attributes(path, "size")
   if type(sz) == "number" then
@@ -165,12 +142,10 @@ local function file_size_bytes(path)
   end
   return "(missing)"
 end
-
 local function diagram_index_from_rel(rel)
   rel = (rel or ""):gsub("\\", "/")
   return rel:match("%-mermaid%-(%d+)%.")
 end
-
 local function renderer_uses_npx(renderer)
   if not renderer or renderer == "" then
     return false
@@ -184,7 +159,6 @@ local function renderer_uses_npx(renderer)
   end
   return false
 end
-
 local function output_pdf_missing(renderer, out_abs)
   local msg = "ltmermaid: PDF was not produced: " .. out_abs
   if renderer_uses_npx(renderer) then
@@ -194,7 +168,6 @@ local function output_pdf_missing(renderer, out_abs)
   end
   tex.error(msg)
 end
-
 local function verify_pdf(path)
   local f, err = io.open(path, "rb")
   if not f then
@@ -208,7 +181,6 @@ local function verify_pdf(path)
     return
   end
 end
-
 function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
   local renderer = resolve_renderer(tex_cmd)
   local xargs = resolve_extra_args(tex_xargs)
@@ -222,13 +194,11 @@ function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
   end
   local inf_abs = mermaid_cli.resolve_path(inf)
   local out_abs = mermaid_cli.resolve_path(outf)
-
   local cmd = renderer
   if string.match(xargs or "", "%S") then
     cmd = cmd .. " " .. xargs
   end
   cmd = cmd .. " -i " .. shq(inf_abs) .. " -o " .. shq(out_abs)
-
   local idx = diagram_index_from_rel(inf)
   mermaid_log("----------")
   mermaid_log("diagram " .. (idx or "?") .. ": " .. inf .. " -> " .. outf)
@@ -239,7 +209,6 @@ function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
   end
   mermaid_log("full shell command: " .. cmd)
   mermaid_log(".mmd size (bytes): " .. file_size_bytes(inf_abs))
-
   local t_clock0 = os.clock()
   local t_wall0 = os.time()
   local a, b, c = os.execute(cmd)
@@ -250,9 +219,7 @@ function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
     d_wall,
     d_clock
   ))
-
   local status, exitcode = interpret_execute_result(a, b, c)
-
   if status == "ok" then
     mermaid_log("renderer subprocess: finished (parsed as success)")
   elseif status == "spawn_failed" then
@@ -275,23 +242,20 @@ function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
     tex.error(msg)
     return
   end
-
   local out_mode = lfs.attributes(out_abs, "mode")
   if out_mode ~= "file" then
     mermaid_log("expected output PDF missing after successful os.execute (path not a file)")
     output_pdf_missing(renderer, out_abs)
     return
   end
-
   verify_pdf(out_abs)
   mermaid_log("output PDF size (bytes): " .. file_size_bytes(out_abs))
   mermaid_log("%PDF header check: OK")
   mermaid_log("----------")
 end
 \end{luacode*}
-
-\newcommand{\mermaid@cmd}{}
-\newcommand{\mermaid@xargs}{}
+\def\mermaid@cmd{}
+\def\mermaid@xargs{}
 \AtEndOfPackage{%
   \edef\mermaid@renderer@nonempty{\mermaid@Renderer}%
   \ifx\mermaid@renderer@nonempty\@empty
@@ -300,20 +264,15 @@ end
   \fi
 }
 \newcommand{\MermaidRendererOptions}[1]{\def\mermaid@xargs{#1}}
-% mmdc -f / --pdfFit: shrink the PDF media box to the diagram (enabled by default).
-\newcommand{\mermaid@pdffit}{-f}
+\def\mermaid@pdffit{-f}
 \newcommand{\MermaidNoPdfFit}{\def\mermaid@pdffit{}}
-% Extra keys for \includegraphics (width is usually set via adjustbox max width).
-\newcommand{\mermaid@graphicsopts}{}
+\def\mermaid@graphicsopts{}
 \newcommand{\MermaidGraphicsOpts}[1]{\def\mermaid@graphicsopts{#1}}
-% Wider-than-line diagrams shrink; smaller ones keep intrinsic size (centered).
-\newcommand{\mermaid@boxopts}{max width=0.9\linewidth,center}
+\def\mermaid@boxopts{max width=0.9\linewidth,center}
 \newcommand{\MermaidAdjustBoxOpts}[1]{\def\mermaid@boxopts{#1}}
-
-\newcounter{mermaid@diag}
-% Path arguments must use \luastring (not \luastringN): luastringN wraps in
-% \unexpanded, so macro names like \mermaid@in would reach Lua verbatim.
-\newcommand{\mermaid@run}[2]{%
+\newcount\c@mermaid@diag
+\c@mermaid@diag=\z@
+\def\mermaid@run#1#2{%
   \luaexec{%
     mermaid_cli.run(%
       \luastring{#1}, \luastring{#2},%
@@ -323,7 +282,7 @@ end
   }%
 }
 \newenvironment{mermaid}{%
-  \stepcounter{mermaid@diag}%
+  \global\advance\c@mermaid@diag\@ne\relax
   \edef\mermaid@in{%
     \directlua{tex.sprint(-2, mermaid_cli.path_for_diag(\the\c@mermaid@diag, "mmd"))}%
   }%
