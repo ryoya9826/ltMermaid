@@ -2,7 +2,7 @@
 
 Embed [Mermaid](https://mermaid.js.org/) diagrams in LaTeX. Diagram sources are written to disk, and the [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) (`mmdc`) renders vector PDFs, which are then included using `\includegraphics`.
 
-There are two packages provided in this repository:
+Originally, `ltmermaid` was created exclusively for LuaLaTeX. Subsequently, the `mermaid` package was developed as a LuaTeX-independent version to support other engines. Therefore, there are two packages provided in this repository:
 
 - `mermaid.sty` (`mermaid`)  
 The implementation to be used with pdfLaTeX / XeLaTeX / upLaTeX / LuaLaTeX, etc. It invokes the Mermaid CLI via the `shellesc` package (or directly via `\write18`). No Lua interpreter is required.
