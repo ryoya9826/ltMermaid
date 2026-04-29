@@ -96,7 +96,7 @@ lualatex -shell-escape yourfile.tex
 
 ### Using `\mermaidfile`
 
-The `\mermaidfile{filename}` command renders Mermaid source from an external `.mmd` file and includes the resulting PDF.
+The `\mermaidfile[<includegraphics options>]{filename}` command renders Mermaid source from an external `.mmd` file and includes the resulting PDF.
 This works with both `mermaid` and `ltmermaid`.
 
 ```latex
@@ -104,8 +104,19 @@ This works with both `mermaid` and `ltmermaid`.
 \usepackage{ltmermaid} % or mermaid
 
 \begin{document}
-\mermaidfile{diagram-001.mmd}
+\mermaidfile[width=0.8\linewidth]{diagram-001.mmd}
 \end{document}
+```
+
+The optional argument is forwarded directly to `\includegraphics`, so any valid graphics key is accepted, such as `width`, `height`, `angle`, `trim`, or `keepaspectratio`.
+
+You can also pass local options to the inline environment:
+
+```latex
+\begin{mermaid}[width=0.8\linewidth]
+flowchart LR
+  A --> B
+\end{mermaid}
 ```
 
 ---

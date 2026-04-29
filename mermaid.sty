@@ -92,7 +92,7 @@
     \mermaid@log{.mmd size (bytes): unavailable (no pdffilesize on this engine)}%
   \fi
   \ifcsname pdfresettimer\endcsname\pdfresettimer\fi
-  \immediate\write18{\mermaid@resolvedrenderer\space\mermaid@mergeargs\space -i "#1" -o "#2" >"\mermaid@stdout" 2>"\mermaid@stderr"}%
+  \immediate\write18{if [ -e "\detokenize{#2}" ] && [ "\detokenize{#2}" -nt "\detokenize{#1}" ]; then :; else \mermaid@resolvedrenderer\space\mermaid@mergeargs\space -i "\detokenize{#1}" -o "\detokenize{#2}" >"\detokenize{\mermaid@stdout}" 2>"\detokenize{\mermaid@stderr}"; fi}%
   \ifcsname pdfelapsedtime\endcsname
     \mermaid@log{timing: \the\pdfelapsedtime\space ms (pdfelapsedtime)}%
   \else
@@ -113,10 +113,11 @@
 }
 \newcount\c@mermaid@diag
 \c@mermaid@diag=\z@
-\newenvironment{mermaid}{%
+\newenvironment{mermaid}[1][]{%
   \global\advance\c@mermaid@diag\@ne\relax
   \edef\mermaid@in{mermaid/\jobname-mermaid-\the\c@mermaid@diag.mmd}%
   \edef\mermaid@out{mermaid/\jobname-mermaid-\the\c@mermaid@diag.pdf}%
+  \def\mermaid@envgraphicsopts{#1}%
   \ShellEscape{mkdir -p mermaid}%
   \VerbatimOut{\mermaid@in}%
 }{%
@@ -125,10 +126,23 @@
   \IfFileExists{\mermaid@out}{%
     \begin{center}%
       \bgroup
+      \ifx\mermaid@graphicsopts\@empty
+        \ifx\mermaid@envgraphicsopts\@empty
+          \def\mermaid@graphicsoptsmerged{}%
+        \else
+          \def\mermaid@graphicsoptsmerged{\mermaid@envgraphicsopts}%
+        \fi
+      \else
+        \ifx\mermaid@envgraphicsopts\@empty
+          \def\mermaid@graphicsoptsmerged{\mermaid@graphicsopts}%
+        \else
+          \def\mermaid@graphicsoptsmerged{\mermaid@graphicsopts,\mermaid@envgraphicsopts}%
+        \fi
+      \fi
       \edef\mermaid@tmp{%
         \egroup
         \noexpand\adjustbox{\mermaid@boxopts}{%
-          \noexpand\includegraphics[\mermaid@graphicsopts]{\mermaid@out}%
+          \noexpand\includegraphics[\mermaid@graphicsoptsmerged]{\mermaid@out}%
         }%
       }%
       \mermaid@tmp
@@ -142,9 +156,10 @@
 }
 
 % New command: \mermaidfile{<filename>}
-\newcommand{\mermaidfile}[1]{%
+\newcommand{\mermaidfile}[2][]{%
   \begingroup
-    \edef\mermaid@in{#1}%
+    \edef\mermaid@in{#2}%
+    \def\mermaid@envgraphicsopts{#1}%
     \global\advance\c@mermaid@diag\@ne\relax
     \edef\mermaid@out{mermaid/\jobname-mermaid-\the\c@mermaid@diag.pdf}%
     \ShellEscape{mkdir -p mermaid}%
@@ -152,10 +167,23 @@
     \IfFileExists{\mermaid@out}{%
       \begin{center}%
         \bgroup
+        \ifx\mermaid@graphicsopts\@empty
+          \ifx\mermaid@envgraphicsopts\@empty
+            \def\mermaid@graphicsoptsmerged{}%
+          \else
+            \def\mermaid@graphicsoptsmerged{\mermaid@envgraphicsopts}%
+          \fi
+        \else
+          \ifx\mermaid@envgraphicsopts\@empty
+            \def\mermaid@graphicsoptsmerged{\mermaid@graphicsopts}%
+          \else
+            \def\mermaid@graphicsoptsmerged{\mermaid@graphicsopts,\mermaid@envgraphicsopts}%
+          \fi
+        \fi
         \edef\mermaid@tmp{%
           \egroup
           \noexpand\adjustbox{\mermaid@boxopts}{%
-            \noexpand\includegraphics[\mermaid@graphicsopts]{\mermaid@out}%
+            \noexpand\includegraphics[\mermaid@graphicsoptsmerged]{\mermaid@out}%
           }%
         }%
         \mermaid@tmp

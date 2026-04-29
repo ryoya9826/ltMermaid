@@ -182,18 +182,20 @@ flowchart LR
 \item \textbf{\cmd{MermaidGraphicsOpts}\texttt{\{...\}}:}
   Additional keys for \cmd{includegraphics} (rotation, \texttt{trim}, etc.).
   Width is usually set with \cmd{MermaidAdjustBoxOpts}.
-\item \textbf{\cmd{mermaidfile}\texttt{\{filename\}}:}
-  Render a Mermaid diagram from an external file (\texttt{.mmd}) instead of inline code. The diagram is rendered and included just like the \texttt{mermaid} environment, but the source is read from the specified file.
+\item \textbf{\cmd{mermaidfile}\texttt{[<includegraphics options>]\{filename\}}:}
+  Render a Mermaid diagram from an external file (\texttt{.mmd}) instead of inline code. The diagram is rendered and included just like the \texttt{mermaid} environment, and an optional argument may be used to pass keys directly to \cmd{includegraphics}.
 \end{itemize}
 \par}
 
 \subsection{Including diagrams from files}
 
-You can use \cmd{mermaidfile}\texttt{\{filename\}} to render a Mermaid diagram from an external file. Example:
+You can use \cmd{mermaidfile}\texttt{[<includegraphics options>]\{filename\}} to render a Mermaid diagram from an external file. Example:
 
 \begin{lstlisting}
-\mermaidfile{diagram-001.mmd}
+\mermaidfile[width=0.8\linewidth]{diagram-001.mmd}
 \end{lstlisting}
+
+The optional argument is forwarded directly to \cmd{includegraphics}, so valid keys include \texttt{width}, \texttt{height}, \texttt{angle}, \texttt{trim}, \texttt{keepaspectratio}, and similar graphics options.
 
 \section{Output files}
 
