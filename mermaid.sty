@@ -71,6 +71,8 @@
 \def\mermaid@run#1#2{%
   \mermaid@buildmergeargs
   \mermaid@resolverenderer
+  \edef\mermaid@infile{#1}%
+  \edef\mermaid@outfile{#2}%
   \edef\mermaid@stdout{mermaid/\jobname-mermaid-\the\c@mermaid@diag.out}%
   \edef\mermaid@stderr{mermaid/\jobname-mermaid-\the\c@mermaid@diag.err}%
   \ShellEscape{mkdir -p mermaid}%
@@ -83,8 +85,8 @@
   \fi
   \mermaid@log{full shell command: \mermaid@resolvedrenderer\space\mermaid@mergeargs\space -i "#1" -o "#2" >"\mermaid@stdout" 2>"\mermaid@stderr"}%
   \ifcsname pdffilesize\endcsname
-    \IfFileExists{#1}{%
-      \mermaid@log{.mmd size (bytes): \pdffilesize{#1}}%
+    \IfFileExists{\mermaid@infile}{%
+      \mermaid@log{.mmd size (bytes): \pdffilesize{\mermaid@infile}}%
     }{%
       \mermaid@log{.mmd size (bytes): (missing)}%
     }%
@@ -92,16 +94,16 @@
     \mermaid@log{.mmd size (bytes): unavailable (no pdffilesize on this engine)}%
   \fi
   \ifcsname pdfresettimer\endcsname\pdfresettimer\fi
-  \immediate\write18{if [ -e "\detokenize{#2}" ] && [ "\detokenize{#2}" -nt "\detokenize{#1}" ]; then :; else \mermaid@resolvedrenderer\space\mermaid@mergeargs\space -i "\detokenize{#1}" -o "\detokenize{#2}" >"\detokenize{\mermaid@stdout}" 2>"\detokenize{\mermaid@stderr}"; fi}%
+  \immediate\write18{if [ -e "\expandafter\detokenize\expandafter{\mermaid@outfile}" ] && [ "\expandafter\detokenize\expandafter{\mermaid@outfile}" -nt "\expandafter\detokenize\expandafter{\mermaid@infile}" ]; then :; else \mermaid@resolvedrenderer\space\mermaid@mergeargs\space -i "\expandafter\detokenize\expandafter{\mermaid@infile}" -o "\expandafter\detokenize\expandafter{\mermaid@outfile}" >"\expandafter\detokenize\expandafter{\mermaid@stdout}" 2>"\expandafter\detokenize\expandafter{\mermaid@stderr}"; fi}%
   \ifcsname pdfelapsedtime\endcsname
     \mermaid@log{timing: \the\pdfelapsedtime\space ms (pdfelapsedtime)}%
   \else
     \mermaid@log{timing: (pdfelapsedtime not available on this engine)}%
   \fi
-  \IfFileExists{#2}{%
+  \IfFileExists{\mermaid@outfile}{%
     \mermaid@log{renderer subprocess: finished (parsed as success)}%
     \ifcsname pdffilesize\endcsname
-      \mermaid@log{output PDF size (bytes): \pdffilesize{#2}}%
+      \mermaid@log{output PDF size (bytes): \pdffilesize{\mermaid@outfile}}%
     \else
       \mermaid@log{output PDF size (bytes): unavailable}%
     \fi
