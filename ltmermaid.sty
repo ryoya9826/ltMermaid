@@ -84,8 +84,14 @@ function mermaid_cli.path_for_diag(n, ext)
 end
 function mermaid_cli.resolve_path(rel)
   rel = (rel or ""):gsub("\\", "/")
-  local fname = rel:match("^mermaid/(.+)$") or rel
-  return mermaid_root_abs() .. "/" .. fname
+  if string.match(rel, "^/") or string.match(rel, "^[A-Za-z]:[\\/]") then
+    return rel
+  end
+  local fname = rel:match("^mermaid/(.+)$")
+  if fname then
+    return mermaid_root_abs() .. "/" .. fname
+  end
+  return abspath(rel)
 end
 local function resolve_renderer(tex_cmd)
   if tex_cmd ~= nil and tex_cmd ~= "" then
@@ -168,6 +174,14 @@ local function output_pdf_missing(renderer, out_abs)
   end
   tex.error(msg)
 end
+local function output_up_to_date(in_abs, out_abs)
+  local inf_attr = lfs.attributes(in_abs)
+  local out_attr = lfs.attributes(out_abs)
+  if inf_attr and out_attr and inf_attr.modification and out_attr.modification then
+    return out_attr.modification >= inf_attr.modification
+  end
+  return false
+end
 local function verify_pdf(path)
   local f, err = io.open(path, "rb")
   if not f then
@@ -192,68 +206,105 @@ function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
       xargs = fit
     end
   end
-  local inf_abs = mermaid_cli.resolve_path(inf)
-  local out_abs = mermaid_cli.resolve_path(outf)
-  local cmd = renderer
-  if string.match(xargs or "", "%S") then
-    cmd = cmd .. " " .. xargs
-  end
-  cmd = cmd .. " -i " .. shq(inf_abs) .. " -o " .. shq(out_abs)
-  local idx = diagram_index_from_rel(inf)
-  mermaid_log("----------")
-  mermaid_log("diagram " .. (idx or "?") .. ": " .. inf .. " -> " .. outf)
-  mermaid_log("cwd: " .. ((lfs.currentdir() or ""):gsub("\\", "/")))
-  mermaid_log("renderer (resolved): " .. renderer)
-  if string.match(xargs or "", "%S") then
-    mermaid_log("CLI extra args (incl. pdf-fit): " .. xargs)
-  end
-  mermaid_log("full shell command: " .. cmd)
-  mermaid_log(".mmd size (bytes): " .. file_size_bytes(inf_abs))
-  local t_clock0 = os.clock()
-  local t_wall0 = os.time()
-  local a, b, c = os.execute(cmd)
-  local d_clock = os.clock() - t_clock0
-  local d_wall = os.time() - t_wall0
-  mermaid_log(string.format(
-    "timing: wall ~= %d s (os.time), lua_cpu = %.3f s (os.clock; often small while waiting on CLI)",
-    d_wall,
-    d_clock
-  ))
-  local status, exitcode = interpret_execute_result(a, b, c)
-  if status == "ok" then
-    mermaid_log("renderer subprocess: finished (parsed as success)")
-  elseif status == "spawn_failed" then
-    local msg = "ltmermaid: could not run the renderer (check -shell-escape, PATH, and Renderer package option)."
-    if renderer_uses_npx(renderer) then
-      msg = msg .. " With npx, Node/npm must be on PATH."
+    local inf_abs = mermaid_cli.resolve_path(inf)
+    local out_abs = mermaid_cli.resolve_path(outf)
+    if output_up_to_date(inf_abs, out_abs) then
+      mermaid_log("renderer skipped: output is newer than input")
+      return
     end
-    tex.error(msg)
-    return
-  elseif status == "unknown" then
-    mermaid_log("os.execute return could not be parsed (a=" .. tostring(a) .. ", b=" .. tostring(b) .. ", c=" .. tostring(c) .. ")")
-    tex.error("ltmermaid: cannot interpret os.execute return value; check the renderer.")
-    return
-  elseif status == "exit" then
-    mermaid_log("renderer exit code: " .. tostring(exitcode))
-    local msg = "ltmermaid: renderer exited with code " .. tostring(exitcode) .. "."
-    if renderer_uses_npx(renderer) then
-      msg = msg .. " npx -y needs registry access; missing Chromium or syntax errors often yield exit 1."
+    local cmd = renderer
+    if string.match(xargs or "", "%S") then
+      cmd = cmd .. " " .. xargs
     end
-    tex.error(msg)
-    return
+    cmd = cmd .. " -i " .. shq(inf_abs) .. " -o " .. shq(out_abs)
+    local idx = diagram_index_from_rel(inf)
+    mermaid_log("----------")
+    mermaid_log("diagram " .. (idx or "?") .. ": " .. inf .. " -> " .. outf)
+    mermaid_log("cwd: " .. ((lfs.currentdir() or ""):gsub("\\", "/")))
+    mermaid_log("renderer (resolved): " .. renderer)
+    if string.match(xargs or "", "%S") then
+      mermaid_log("CLI extra args (incl. pdf-fit): " .. xargs)
+    end
+    mermaid_log("full shell command: " .. cmd)
+    mermaid_log(".mmd size (bytes): " .. file_size_bytes(inf_abs))
+    local t_clock0 = os.clock()
+    local t_wall0 = os.time()
+    local a, b, c = os.execute(cmd)
+    local d_clock = os.clock() - t_clock0
+    local d_wall = os.time() - t_wall0
+    mermaid_log(string.format(
+      "timing: wall ~= %d s (os.time), lua_cpu = %.3f s (os.clock; often small while waiting on CLI)",
+      d_wall,
+      d_clock
+    ))
+    local status, exitcode = interpret_execute_result(a, b, c)
+    if status == "ok" then
+      mermaid_log("renderer subprocess: finished (parsed as success)")
+    elseif status == "spawn_failed" then
+      local msg = "ltmermaid: could not run the renderer (check -shell-escape, PATH, and Renderer package option)."
+      if renderer_uses_npx(renderer) then
+        msg = msg .. " With npx, Node/npm must be on PATH."
+      end
+      tex.error(msg)
+      return
+    elseif status == "unknown" then
+      mermaid_log("os.execute return could not be parsed (a=" .. tostring(a) .. ", b=" .. tostring(b) .. ", c=" .. tostring(c) .. ")")
+      tex.error("ltmermaid: cannot interpret os.execute return value; check the renderer.")
+      return
+    elseif status == "exit" then
+      mermaid_log("renderer exit code: " .. tostring(exitcode))
+      local msg = "ltmermaid: renderer exited with code " .. tostring(exitcode) .. "."
+      if renderer_uses_npx(renderer) then
+        msg = msg .. " npx -y needs registry access; missing Chromium or syntax errors often yield exit 1."
+      end
+      tex.error(msg)
+      return
+    end
+    local out_mode = lfs.attributes(out_abs, "mode")
+    if out_mode ~= "file" then
+      mermaid_log("expected output PDF missing after successful os.execute (path not a file)")
+      output_pdf_missing(renderer, out_abs)
+      return
+    end
+    verify_pdf(out_abs)
+    mermaid_log("output PDF size (bytes): " .. file_size_bytes(out_abs))
+    mermaid_log("%PDF header check: OK")
+    mermaid_log("----------")
   end
-  local out_mode = lfs.attributes(out_abs, "mode")
-  if out_mode ~= "file" then
-    mermaid_log("expected output PDF missing after successful os.execute (path not a file)")
-    output_pdf_missing(renderer, out_abs)
-    return
-  end
-  verify_pdf(out_abs)
-  mermaid_log("output PDF size (bytes): " .. file_size_bytes(out_abs))
-  mermaid_log("%PDF header check: OK")
-  mermaid_log("----------")
-end
 \end{luacode*}
+
+% New command: \mermaidfile[<graphics options>]{<filename>}
+\newcommand{\mermaidfile}[2][]{%
+  \begingroup
+    \def\mermaid@envgraphicsopts{#1}%
+    \ifx\mermaid@graphicsopts\@empty
+      \ifx\mermaid@envgraphicsopts\@empty
+        \def\mermaid@graphicsoptsmerged{}%
+      \else
+        \def\mermaid@graphicsoptsmerged{\mermaid@envgraphicsopts}%
+      \fi
+    \else
+      \ifx\mermaid@envgraphicsopts\@empty
+        \def\mermaid@graphicsoptsmerged{\mermaid@graphicsopts}%
+      \else
+        \def\mermaid@graphicsoptsmerged{\mermaid@graphicsopts,\mermaid@envgraphicsopts}%
+      \fi
+    \fi
+    \directlua{%
+      mermaid_cli.ensure_mermaid_root()
+      mermaid_cli._diag = (mermaid_cli._diag or 0) + 1
+      local inpath = \luastring{#2}
+      local outf = tex.jobname .. "-mermaid-" .. tostring(mermaid_cli._diag) .. ".pdf"
+      local outpath = "mermaid/" .. outf
+      mermaid_cli.run(inpath, outpath, \luastring{\mermaid@cmd}, \luastring{\mermaid@xargs}, \luastring{\mermaid@pdffit})
+      if lfs.attributes(outpath) then
+        tex.sprint("\\begin{center}\\adjustbox{" .. \luastring{\mermaid@boxopts} .. "}{\\includegraphics[" .. \luastring{\mermaid@graphicsoptsmerged} .. "]{" .. outpath .. "}}\\end{center}")
+      else
+        tex.error("ltmermaid: PDF was not produced: " .. outpath)
+      end
+    }%
+  \endgroup
+}
 \def\mermaid@cmd{}
 \def\mermaid@xargs{}
 \AtEndOfPackage{%
@@ -281,7 +332,7 @@ end
     )%
   }%
 }
-\newenvironment{mermaid}{%
+\newenvironment{mermaid}[1][]{%
   \global\advance\c@mermaid@diag\@ne\relax
   \edef\mermaid@in{%
     \directlua{tex.sprint(-2, mermaid_cli.path_for_diag(\the\c@mermaid@diag, "mmd"))}%
@@ -289,16 +340,30 @@ end
   \edef\mermaid@out{%
     \directlua{tex.sprint(-2, mermaid_cli.path_for_diag(\the\c@mermaid@diag, "pdf"))}%
   }%
+  \def\mermaid@envgraphicsopts{#1}%
   \VerbatimOut{\mermaid@in}%
 }{%
   \endVerbatimOut
   \mermaid@run{\mermaid@in}{\mermaid@out}%
   \begin{center}%
     \bgroup
+    \ifx\mermaid@graphicsopts\@empty
+      \ifx\mermaid@envgraphicsopts\@empty
+        \def\mermaid@graphicsoptsmerged{}%
+      \else
+        \def\mermaid@graphicsoptsmerged{\mermaid@envgraphicsopts}%
+      \fi
+    \else
+      \ifx\mermaid@envgraphicsopts\@empty
+        \def\mermaid@graphicsoptsmerged{\mermaid@graphicsopts}%
+      \else
+        \def\mermaid@graphicsoptsmerged{\mermaid@graphicsopts,\mermaid@envgraphicsopts}%
+      \fi
+    \fi
     \edef\mermaid@tmp{%
       \egroup
       \noexpand\adjustbox{\mermaid@boxopts}{%
-        \noexpand\includegraphics[\mermaid@graphicsopts]{\mermaid@out}%
+        \noexpand\includegraphics[\mermaid@graphicsoptsmerged]{\mermaid@out}%
       }%
     }%
     \mermaid@tmp
