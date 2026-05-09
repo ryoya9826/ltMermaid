@@ -153,12 +153,14 @@ For full explanations and diagram examples, see `mermaid-doc.tex` / `mermaid-doc
 
 ### `mermaid.sty`
 
+- Version 1.0c (2026-05-06): Various bug fixes.
 - Version 1.0b (2026-04-29): Added `\mermaidfile`support, Makefile build/test targets, and `l3build` regression testing
 - Version 1.0a (2026-04-20): Renamed sample documents.
 - Version 1.0 (2026-04-16): Stable release.
 
 ### `ltmermaid.sty`
 
+- Version 1.0c (2026-05-06): Various bug fixes.
 - Version 1.0b (2026-04-29): Added `\mermaidfile`support, Makefile build/test targets, and `l3build` regression testing
 - Version 1.0a (2026-04-20): Renamed sample documents.
 - Version 1.0 (2026-04-16): Stable release.

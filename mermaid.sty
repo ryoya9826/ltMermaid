@@ -10,7 +10,7 @@
 % and version 1.3c or later is part of all distributions of LaTeX
 % version 2008/05/04 or later.
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{mermaid}[2026/04/20 v1.0a Mermaid via Mermaid CLI / PDF]
+\ProvidesPackage{mermaid}[2026/05/06 v1.0c Mermaid via Mermaid CLI / PDF]
 \RequirePackage{shellesc}
 \RequirePackage{graphicx}
 \RequirePackage{adjustbox}
@@ -115,13 +115,23 @@
 }
 \newcount\c@mermaid@diag
 \c@mermaid@diag=\z@
-\newenvironment{mermaid}[1][]{%
+\def\mermaid@env@scanopt{%
+  \@ifnextchar[%]
+    {\mermaid@env@gotopt}%
+    {\mermaid@env@startenv{}}%
+}
+\def\mermaid@env@gotopt[#1]{\mermaid@env@startenv{#1}}
+\def\mermaid@env@startenv#1{%
+  \def\mermaid@envgraphicsopts{#1}%
   \global\advance\c@mermaid@diag\@ne\relax
   \edef\mermaid@in{mermaid/\jobname-mermaid-\the\c@mermaid@diag.mmd}%
   \edef\mermaid@out{mermaid/\jobname-mermaid-\the\c@mermaid@diag.pdf}%
-  \def\mermaid@envgraphicsopts{#1}%
   \ShellEscape{mkdir -p mermaid}%
   \VerbatimOut{\mermaid@in}%
+}
+\newenvironment{mermaid}{%
+  \catcode`\^^M=\active
+  \mermaid@env@scanopt
 }{%
   \endVerbatimOut
   \mermaid@run{\mermaid@in}{\mermaid@out}%
