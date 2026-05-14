@@ -4,6 +4,7 @@
 \usepackage{float}
 \usepackage{mermaid}
 \usepackage[hidelinks]{hyperref}
+\usepackage{bxghost}
 \usepackage{bxtexlogo}
 \usepackage{listings}
 \usepackage{xcolor}
@@ -57,7 +58,7 @@
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
 
 \title{The \texttt{mermaid} package (\texttt{mermaid.sty})}
-\author{Ryoya Ando \\\url{https://ryoya9826.github.io/}}
+\author{安藤 遼哉（Ryoya Ando）\\\url{https://ryoya9826.github.io/}}
 \date{\today}
 
 \begin{document}
@@ -167,6 +168,7 @@ flowchart LR
 \end{itemize}
 \par}
 
+
 \section{User commands}
 
 {\small
@@ -181,8 +183,20 @@ flowchart LR
 \item \textbf{\cmd{MermaidGraphicsOpts}\texttt{\{...\}}:}
   Additional keys for \cmd{includegraphics} (rotation, \texttt{trim}, etc.).
   Width is usually set with \cmd{MermaidAdjustBoxOpts}.
+\item \textbf{\cmd{mermaidfile}\texttt{[<includegraphics options>]\{filename\}}:}
+  Render a Mermaid diagram from an external file (\texttt{.mmd}) instead of inline code. The diagram is rendered and included just like the \texttt{mermaid} environment, and an optional argument may be used to pass keys directly to \cmd{includegraphics}.
 \end{itemize}
 \par}
+
+\subsection{Including diagrams from files}
+
+You can use \cmd{mermaidfile}\texttt{[<includegraphics options>]\{filename\}} to render a Mermaid diagram from an external file. Example:
+
+\begin{lstlisting}
+\mermaidfile[width=0.8\linewidth]{diagram-001.mmd}
+\end{lstlisting}
+
+The optional argument is forwarded directly to \cmd{includegraphics}, so valid keys include \texttt{width}, \texttt{height}, \texttt{angle}, \texttt{trim}, \texttt{keepaspectratio}, and similar graphics options.
 
 \section{Output files}
 
@@ -361,8 +375,10 @@ stateDiagram-v2
 \section{Revision history}
 
 \begin{description}
-\item[Version 1.0a（2026-04-20）] Renamed sample documents.
-\item[Version 1.0（2026-04-16）] Stable release.
+\item[Version 1.0c (2026-05-06)] Various bug fixes.
+\item[Version 1.0b (2026-04-29)] Added \cmd{mermaidfile} support, Makefile build/test targets, and \texttt{l3build} regression testing.
+\item[Version 1.0a (2026-04-20)] Renamed sample documents.
+\item[Version 1.0 (2026-04-16)] Stable release.
 \end{description}
 
 \end{document}

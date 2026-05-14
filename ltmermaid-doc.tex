@@ -169,6 +169,7 @@ flowchart LR
 \end{itemize}
 \par}
 
+
 \section{User macros}
 
 {\small
@@ -184,8 +185,20 @@ flowchart LR
 \item \textbf{\cmd{MermaidGraphicsOpts}\texttt{\{...\}}:}
   Extra keys for \cmd{includegraphics} (e.g.\ rotation, \texttt{trim}); width is usually set with
   \cmd{MermaidAdjustBoxOpts}.
+\item \textbf{\cmd{mermaidfile}\texttt{[<includegraphics options>]\{filename\}}:}
+  Render a Mermaid diagram from an external file (\texttt{.mmd}) instead of inline code. The diagram is rendered and included just like the \texttt{mermaid} environment, and an optional argument may be used to pass keys directly to \cmd{includegraphics}.
 \end{itemize}
 \par}
+
+\subsection{Including diagrams from files}
+
+You can use \cmd{mermaidfile}\texttt{[<includegraphics options>]\{filename\}} to render a Mermaid diagram from an external file. Example:
+
+\begin{lstlisting}
+\mermaidfile[width=0.8\linewidth]{diagram-001.mmd}
+\end{lstlisting}
+
+The optional argument is forwarded directly to \cmd{includegraphics}, so valid keys include \texttt{width}, \texttt{height}, \texttt{angle}, \texttt{trim}, \texttt{keepaspectratio}, and similar graphics options.
 
 \section{Output files}
 
@@ -365,10 +378,12 @@ stateDiagram-v2
 \section{Version history}
 
 \begin{description}
-\item[Version 1.0a（2026-04-20）] Renamed sample documents.
-\item[Version 1.0（2026-04-16）] Stable release.
-\item[Version 0.2（2026-04-13）] Removed \texttt{MERMAID\_MMDC} and \texttt{MERMAID\_MMDC\_OPTIONS}.
-\item[Version 0.1（2026-04-08）] Initial release.
+\item[Version 1.0c (2026-05-06)] Various bug fixes.
+\item[Version 1.0b (2026-04-29)] Added \cmd{mermaidfile} support, Makefile build/test targets, and \texttt{l3build} regression testing.
+\item[Version 1.0a (2026-04-20)] Renamed sample documents.
+\item[Version 1.0 (2026-04-16)] Stable release.
+\item[Version 0.2 (2026-04-13)] Removed \texttt{MERMAID\_MMDC} and \texttt{MERMAID\_MMDC\_OPTIONS}.
+\item[Version 0.1 (2026-04-08)] Initial release.
 \end{description}
 
 \end{document}

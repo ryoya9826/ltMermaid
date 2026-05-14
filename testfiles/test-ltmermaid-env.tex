@@ -1,0 +1,19 @@
+\documentclass{article}
+\usepackage{ltmermaid}
+\begin{document}
+
+% Test: include a Mermaid diagram by environment using LuaLaTeX and ltmermaid
+
+\begin{mermaid}
+flowchart LR
+  A --> B
+\end{mermaid}
+
+% Test: include a Mermaid diagram by environment with local graphics options
+
+\begin{mermaid}[width=5cm]
+flowchart LR
+  A --> B
+\end{mermaid}
+
+\end{document}

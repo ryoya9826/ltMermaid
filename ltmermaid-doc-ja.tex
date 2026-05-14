@@ -175,7 +175,19 @@ flowchart LR
 \item \textbf{\cmd{MermaidGraphicsOpts}\texttt{\{...\}}:}
   \cmd{includegraphics} への追加キー（回転，\texttt{trim} など）．
   幅は通常 \cmd{MermaidAdjustBoxOpts} で指定します．
+\item \textbf{\cmd{mermaidfile}\texttt{[<includegraphics オプション>]\{ファイル名\}}:}
+  インラインのコードではなく，外部ファイル（\texttt{.mmd}）から Mermaid 図をレンダリングして取り込みます．\texttt{mermaid} 環境と同じ流れでレンダリング・取り込みが行われ，省略可能な引数で \cmd{includegraphics} に直接キーを渡せます．
 \end{itemize}
+
+\subsection{ファイルから図を取り込む}
+
+\cmd{mermaidfile}\texttt{[<includegraphics オプション>]\{ファイル名\}} を使うと，外部ファイルから Mermaid 図をレンダリングできます．例：
+
+\begin{lstlisting}
+\mermaidfile[width=0.8\linewidth]{diagram-001.mmd}
+\end{lstlisting}
+
+省略可能な引数はそのまま \cmd{includegraphics} に渡されるため，\texttt{width}，\texttt{height}，\texttt{angle}，\texttt{trim}，\texttt{keepaspectratio} などのグラフィックオプションが利用できます．
 
 \section{出力ファイル}
 
@@ -355,6 +367,8 @@ stateDiagram-v2
 \section{更新履歴}
 
 \begin{description}
+\item[Version 1.0c（2026-05-06）] Various bug fixes.
+\item[Version 1.0b（2026-04-29）] Added \cmd{mermaidfile} support, Makefile build/test targets, and \texttt{l3build} regression testing.
 \item[Version 1.0a（2026-04-20）] Renamed sample documents.
 \item[Version 1.0（2026-04-16）] Stable release.
 \item[Version 0.2（2026-04-13）] \texttt{MERMAID\_MMDC} / \texttt{MERMAID\_MMDC\_OPTIONS} を廃止．
