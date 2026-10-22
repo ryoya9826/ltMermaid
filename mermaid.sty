@@ -10,7 +10,7 @@
 % and version 1.3c or later is part of all distributions of LaTeX
 % version 2008/05/04 or later.
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{mermaid}[2026/05/06 v1.0c Mermaid via Mermaid CLI / PDF]
+\ProvidesPackage{mermaid}[2026/10/22 v1.1 Mermaid via Mermaid CLI / PDF]
 \RequirePackage{shellesc}
 \RequirePackage{graphicx}
 \RequirePackage{adjustbox}
@@ -21,6 +21,7 @@
 \ProcessKeyvalOptions*
 
 \newread\mermaid@login
+\newwrite\mermaid@optsout
 \def\mermaid@cmd{}
 \def\mermaid@xargs{}
 \AtEndOfPackage{%
@@ -31,8 +32,14 @@
   \fi
 }
 \newcommand{\MermaidRendererOptions}[1]{\def\mermaid@xargs{#1}}
-\def\mermaid@pdffit{-f}
+% auto: Mermaid CLI 11 以前のときだけ -f を付ける（-f は Mermaid CLI 12 で廃止）
+\def\mermaid@pdffit{auto}
+\newcommand{\MermaidPdfFit}{\def\mermaid@pdffit{-f}}
 \newcommand{\MermaidNoPdfFit}{\def\mermaid@pdffit{}}
+% シェル変数 D に出力ディレクトリ（-output-directory 未指定時は .）を設定する前置き
+\def\mermaid@shoutdir{D=$TEXMF_OUTPUT_DIRECTORY; [ -n "$D" ] || D=.;}
+% `mmdc --version` の出力からメジャーバージョンを取り出す sed スクリプト
+\edef\mermaid@sedmajor{\detokenize{s/^ *v*\([0-9][0-9]*\)\.[0-9][0-9]*\.[0-9][0-9]*.*$/\1/p}}
 \def\mermaid@graphicsopts{}
 \newcommand{\MermaidGraphicsOpts}[1]{\def\mermaid@graphicsopts{#1}}
 \def\mermaid@boxopts{max width=0.9\linewidth,center}
@@ -44,21 +51,11 @@
     \let\mermaid@resolvedrenderer\mermaid@cmd
   \fi
 }
-\def\mermaid@buildmergeargs{%
-  \ifx\mermaid@pdffit\@empty
-    \let\mermaid@mergeargs\mermaid@xargs
-  \else
-    \ifx\mermaid@xargs\@empty
-      \let\mermaid@mergeargs\mermaid@pdffit
-    \else
-      \edef\mermaid@mergeargs{\mermaid@pdffit\space\mermaid@xargs}%
-    \fi
-  \fi
-}
 \def\mermaid@log#1{\typeout{[mermaid] #1}}
+\def\mermaid@mkdir{\ShellEscape{\mermaid@shoutdir\space mkdir -p "$D/mermaid"}}
 \def\mermaid@logcwd{%
   \edef\mermaid@cwdfile{mermaid/mermaid-cwd-\the\c@mermaid@diag.txt}%
-  \ShellEscape{pwd > \mermaid@cwdfile}%
+  \ShellEscape{\mermaid@shoutdir\space pwd > "$D/\mermaid@cwdfile"}%
   \openin\mermaid@login=\mermaid@cwdfile\relax
   \ifeof\mermaid@login
     \mermaid@log{cwd: (unavailable)}%
@@ -68,22 +65,107 @@
     \mermaid@log{cwd: \mermaid@cwdline}%
   \fi
 }
-\def\mermaid@run#1#2{%
-  \mermaid@buildmergeargs
+% pdfTeX / LuaTeX の PDF 出力以外（DVI 出力と XeTeX）かどうか
+\newif\ifmermaid@needabs
+\def\mermaid@checkneedabs{%
+  \mermaid@needabstrue
+  \ifdefined\XeTeXrevision\else
+    \ifdefined\outputmode
+      \ifnum\outputmode>\z@ \mermaid@needabsfalse \fi
+    \else
+      \ifdefined\pdfoutput
+        \ifnum\pdfoutput>\z@ \mermaid@needabsfalse \fi
+      \fi
+    \fi
+  \fi
+}
+% DVI 出力や XeTeX で -output-directory を指定したときは，\includegraphics に絶対パスを渡す．
+% XeTeX の画像読み込み，extractbb（BoundingBox の取得），dvipdfmx は出力ディレクトリを
+% 探さないため，相対パスでは出力ディレクトリ内の図を見つけられない
+\let\mermaid@includeprefix\@empty
+\newif\ifmermaid@prefixready
+\def\mermaid@setincludeprefix{%
+  \ifmermaid@prefixready\else
+    \global\mermaid@prefixreadytrue
+    \mermaid@checkneedabs
+    \ifmermaid@needabs
+      \edef\mermaid@outdirfile{mermaid/\jobname-mermaid-outdir.txt}%
+      \ShellEscape{\mermaid@shoutdir\space if [ "$D" != . ]; then cd "$D" && pwd; fi > "$D/\mermaid@outdirfile"}%
+      \begingroup
+        \endlinechar=\m@ne
+        \openin\mermaid@login=\mermaid@outdirfile\relax
+        \ifeof\mermaid@login\else
+          % パスに _ や ~ が含まれても壊れないよう，\readline で文字として読む
+          \readline\mermaid@login to \mermaid@outdirline
+          \closein\mermaid@login
+          \ifx\mermaid@outdirline\@empty\else
+            \xdef\mermaid@includeprefix{\mermaid@outdirline/}%
+          \fi
+        \fi
+      \endgroup
+      \ifx\mermaid@includeprefix\@empty\else
+        \mermaid@log{-output-directory without direct PDF output: including diagrams by absolute path (\mermaid@includeprefix)}%
+      \fi
+    \fi
+  \fi
+}
+% 絶対パスで取り込むときは，BoundingBox を書いた .xbb を図の隣に用意しておく．
+% dvipdfmx.def はパスを引用符で囲まずに extractbb を呼ぶため，空白を含むパスで失敗する．
+% .xbb には作成日時が入るので，PDF より古いときだけ作り直す（latexmk の収束を妨げないため）
+\def\mermaid@makexbb{%
+  \ifx\mermaid@includeprefix\@empty\else
+    \ShellEscape{\mermaid@shoutdir\space O="$D/\mermaid@base.pdf"; X="$D/\mermaid@base.xbb"; [ "$X" -nt "$O" ] || extractbb -O "$O" > "$X"}%
+  \fi
+}
+% #1: TeX から見た入力パス，#2: シェルに渡す入力パス，#3: TeX から見た出力パス
+% TeX は -output-directory 配下のファイルも見つけるが，シェルは作業ディレクトリで
+% 動くため，mermaid/ 配下のパスには "$D/" を前置して渡す
+\def\mermaid@run#1#2#3{%
   \mermaid@resolverenderer
   \edef\mermaid@infile{#1}%
-  \edef\mermaid@outfile{#2}%
-  \edef\mermaid@stdout{mermaid/\jobname-mermaid-\the\c@mermaid@diag.out}%
-  \edef\mermaid@stderr{mermaid/\jobname-mermaid-\the\c@mermaid@diag.err}%
-  \ShellEscape{mkdir -p mermaid}%
+  \edef\mermaid@outfile{#3}%
+  \edef\mermaid@base{mermaid/\jobname-mermaid-\the\c@mermaid@diag}%
+  \edef\mermaid@stdout{\mermaid@base.out}%
+  \edef\mermaid@stderr{\mermaid@base.err}%
+  \mermaid@mkdir
   \mermaid@log{----------}%
-  \mermaid@log{diagram \the\c@mermaid@diag: #1 -> #2}%
+  \mermaid@log{diagram \the\c@mermaid@diag: #1 -> #3}%
   \mermaid@logcwd
   \mermaid@log{renderer (resolved): \mermaid@resolvedrenderer}%
-  \ifx\mermaid@mergeargs\@empty\else
-    \mermaid@log{CLI extra args (incl. pdf-fit): \mermaid@mergeargs}%
+  \mermaid@log{pdf-fit: \ifx\mermaid@pdffit\@empty off\else\mermaid@pdffit\fi}%
+  \ifx\mermaid@xargs\@empty\else
+    \mermaid@log{CLI extra args: \mermaid@xargs}%
   \fi
-  \mermaid@log{full shell command: \mermaid@resolvedrenderer\space\mermaid@mergeargs\space -i "#1" -o "#2" >"\mermaid@stdout" 2>"\mermaid@stderr"}%
+  % 前回描画時のソースとオプションを比べるための見出し部分を書き出す
+  \immediate\openout\mermaid@optsout=\mermaid@base.opts\relax
+  \immediate\write\mermaid@optsout{renderer: \expandafter\detokenize\expandafter{\mermaid@resolvedrenderer}}%
+  \immediate\write\mermaid@optsout{pdffit: \expandafter\detokenize\expandafter{\mermaid@pdffit}}%
+  \immediate\write\mermaid@optsout{args: \expandafter\detokenize\expandafter{\mermaid@xargs}}%
+  \immediate\write\mermaid@optsout{}%
+  \immediate\closeout\mermaid@optsout
+  % 内容（ソースとオプション）が前回描画時と同じならスキップする．Mermaid CLI の PDF は
+  % 毎回バイト列が変わるため，不要な再描画は latexmk の収束を妨げる
+  \edef\mermaid@shcmd{%
+    \mermaid@shoutdir\space
+    I="#2"; O="$D/\mermaid@outfile"; S="$D/\mermaid@base.stamp"; N="$S.new";
+    cat "$D/\mermaid@base.opts" "$I" > "$N" 2>/dev/null;
+    if [ -f "$O" ] && cmp -s "$N" "$S"; then
+      rm -f "$N";
+      echo "renderer skipped: source and options unchanged since last rendering" > "$D/\mermaid@stdout";
+    else
+      F="\expandafter\detokenize\expandafter{\mermaid@pdffit}";
+      if [ "$F" = auto ]; then
+        F=; M=$(\expandafter\detokenize\expandafter{\mermaid@resolvedrenderer} --version 2>/dev/null | sed -n '\mermaid@sedmajor' | head -n 1);
+        if [ -n "$M" ] && [ "$M" -lt 12 ]; then F=-f; fi;
+        echo "pdf-fit: auto -> '$F' (Mermaid CLI major version: '$M')" > "$D/\mermaid@stdout";
+      else
+        : > "$D/\mermaid@stdout";
+      fi;
+      rm -f "$O" "$S";
+      \expandafter\detokenize\expandafter{\mermaid@resolvedrenderer} $F \expandafter\detokenize\expandafter{\mermaid@xargs} -i "$I" -o "$O" >>"$D/\mermaid@stdout" 2>"$D/\mermaid@stderr" && [ -f "$O" ] && mv -f "$N" "$S";
+    fi
+  }%
+  \mermaid@log{full shell command: \mermaid@shcmd}%
   \ifcsname pdffilesize\endcsname
     \IfFileExists{\mermaid@infile}{%
       \mermaid@log{.mmd size (bytes): \pdffilesize{\mermaid@infile}}%
@@ -94,7 +176,7 @@
     \mermaid@log{.mmd size (bytes): unavailable (no pdffilesize on this engine)}%
   \fi
   \ifcsname pdfresettimer\endcsname\pdfresettimer\fi
-  \immediate\write18{if [ -e "\expandafter\detokenize\expandafter{\mermaid@outfile}" ] && [ "\expandafter\detokenize\expandafter{\mermaid@outfile}" -nt "\expandafter\detokenize\expandafter{\mermaid@infile}" ]; then :; else \mermaid@resolvedrenderer\space\mermaid@mergeargs\space -i "\expandafter\detokenize\expandafter{\mermaid@infile}" -o "\expandafter\detokenize\expandafter{\mermaid@outfile}" >"\expandafter\detokenize\expandafter{\mermaid@stdout}" 2>"\expandafter\detokenize\expandafter{\mermaid@stderr}"; fi}%
+  \immediate\write18{\mermaid@shcmd}%
   \ifcsname pdfelapsedtime\endcsname
     \mermaid@log{timing: \the\pdfelapsedtime\space ms (pdfelapsedtime)}%
   \else
@@ -126,7 +208,7 @@
   \global\advance\c@mermaid@diag\@ne\relax
   \edef\mermaid@in{mermaid/\jobname-mermaid-\the\c@mermaid@diag.mmd}%
   \edef\mermaid@out{mermaid/\jobname-mermaid-\the\c@mermaid@diag.pdf}%
-  \ShellEscape{mkdir -p mermaid}%
+  \mermaid@mkdir
   \VerbatimOut{\mermaid@in}%
 }
 \newenvironment{mermaid}{%
@@ -134,8 +216,10 @@
   \mermaid@env@scanopt
 }{%
   \endVerbatimOut
-  \mermaid@run{\mermaid@in}{\mermaid@out}%
+  \mermaid@run{\mermaid@in}{$D/\mermaid@in}{\mermaid@out}%
   \IfFileExists{\mermaid@out}{%
+    \mermaid@setincludeprefix
+    \mermaid@makexbb
     \begin{center}%
       \bgroup
       \ifx\mermaid@graphicsopts\@empty
@@ -154,7 +238,7 @@
       \edef\mermaid@tmp{%
         \egroup
         \noexpand\adjustbox{\mermaid@boxopts}{%
-          \noexpand\includegraphics[\mermaid@graphicsoptsmerged]{\mermaid@out}%
+          \noexpand\includegraphics[\mermaid@graphicsoptsmerged]{\mermaid@includeprefix\mermaid@out}%
         }%
       }%
       \mermaid@tmp
@@ -174,9 +258,11 @@
     \def\mermaid@envgraphicsopts{#1}%
     \global\advance\c@mermaid@diag\@ne\relax
     \edef\mermaid@out{mermaid/\jobname-mermaid-\the\c@mermaid@diag.pdf}%
-    \ShellEscape{mkdir -p mermaid}%
-    \mermaid@run{\mermaid@in}{\mermaid@out}%
+    % 外部ファイルは作業ディレクトリ基準のパスなので，そのままシェルに渡す
+    \mermaid@run{\mermaid@in}{\detokenize{#2}}{\mermaid@out}%
     \IfFileExists{\mermaid@out}{%
+      \mermaid@setincludeprefix
+      \mermaid@makexbb
       \begin{center}%
         \bgroup
         \ifx\mermaid@graphicsopts\@empty
@@ -195,7 +281,7 @@
         \edef\mermaid@tmp{%
           \egroup
           \noexpand\adjustbox{\mermaid@boxopts}{%
-            \noexpand\includegraphics[\mermaid@graphicsoptsmerged]{\mermaid@out}%
+            \noexpand\includegraphics[\mermaid@graphicsoptsmerged]{\mermaid@includeprefix\mermaid@out}%
           }%
         }%
         \mermaid@tmp

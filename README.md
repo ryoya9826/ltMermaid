@@ -7,7 +7,7 @@ Originally, `ltmermaid` was created exclusively for LuaLaTeX. Subsequently, the 
 - `mermaid.sty` (`mermaid`)  
 The implementation to be used with pdfLaTeX / XeLaTeX / upLaTeX / LuaLaTeX, etc. It invokes the Mermaid CLI via the `shellesc` package (or directly via `\write18`). No Lua interpreter is required.
 - `ltmermaid.sty` (`ltmermaid`)  
-An implementation dedicated to LuaLaTeX that provides the same macros (the `Renderer` option, `\Mermaid...` macros, and the `mermaid` environment) as the `mermaid` package above. The CLI is invoked via Lua's `os.execute`, and the package handles LuaLaTeX-specific behavior such as outputting to `mermaid/` under `-output-directory` / `TEXMF_OUTPUT_DIRECTORY`.
+An implementation dedicated to LuaLaTeX that provides the same macros (the `Renderer` option, `\Mermaid...` macros, and the `mermaid` environment) as the `mermaid` package above. The CLI is invoked via Lua's `os.execute`.
 
 Author: Ryoya Ando — [https://ryoya9826.github.io/](https://ryoya9826.github.io/)  
 License: [LPPL](https://www.latex-project.org/lppl.txt) version 1.3c  
@@ -20,7 +20,7 @@ Contributors: [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 | Item             | Requirement                                                                      |
 | ---------------- | -------------------------------------------------------------------------------- |
-| TeX engine       | upLaTeX / pdfLaTeX / LuaLaTeX, etc. (Lua interpreter is not required)            |
+| TeX engine       | upLaTeX / pdfLaTeX / XeLaTeX / LuaLaTeX, etc. (Lua interpreter is not required)  |
 | LaTeX format     | LaTeX2e                                                                          |
 | Shell escape     | `-shell-escape` (the CLI is invoked via `shellesc` / `\write18`)                 |
 | External tool    | Mermaid CLI (`mmdc`)                                                             |
@@ -70,6 +70,8 @@ xelatex  -shell-escape yourfile.tex
 lualatex -shell-escape yourfile.tex
 uplatex -shell-escape yourfile.tex && dvipdfmx yourfile.dvi
 ```
+
+With upLaTeX + dvipdfmx, specify the `dvipdfmx` option, e.g. `\documentclass[dvipdfmx]{article}`.
 
 ### For `ltmermaid`
 
@@ -128,22 +130,21 @@ Whether using `mermaid` or `ltmermaid`, the following specification methods are 
 | Mechanism                                   | Purpose                                                                                                                              |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `\usepackage[Renderer=...]{mermaid}`, etc.  | The prefix of the execution command line. The default is `mmdc` if omitted.                                                          |
-| `\MermaidRendererOptions{...}`              | Extra CLI arguments passed before `-i` / `-o` (merged after the default `-f`).                                                       |
-| `\MermaidNoPdfFit`                          | Disables the `-f` (`--pdfFit`) option for `mmdc` (default is enabled).                                                               |
+| `\MermaidRendererOptions{...}`              | Extra CLI arguments passed before `-i` / `-o` (merged after `-f` when it is passed).                                                 |
+| `\MermaidPdfFit`                            | Always passes `-f` (`--pdfFit`) to the renderer.                                                                                     |
+| `\MermaidNoPdfFit`                          | Never passes `-f` (`--pdfFit`) to the renderer.                                                                                      |
 | `\MermaidAdjustBoxOpts{...}`                | Additional options for the [adjustbox](https://ctan.org/pkg/adjustbox) environment used for diagram placement (default is `max width=0.9\linewidth,center`). |
 | `\MermaidGraphicsOpts{...}`                 | Extra options passed to `\includegraphics` (e.g. `angle` or `trim`). The width is typically adjusted with `\MermaidAdjustBoxOpts`.   |
+
+By default, `-f` is passed only when `<renderer> --version` reports Mermaid CLI 11 or older (Mermaid CLI 12 removed `-f`). If the version cannot be detected, `-f` is not passed; add `\MermaidPdfFit` if you use Mermaid CLI 11 or older.
 
 ---
 
 ### Output Files
 
-#### For `mermaid`
+Intermediate `.mmd` and `.pdf` files are output to the `mermaid/` directory right under the compilation directory. The file names will be a concatenation of the job name and a sequential number, such as `\jobname-mermaid-1.mmd`. When `-output-directory` is used (e.g. `latexmk -outdir=build`), they are placed in `$TEXMF_OUTPUT_DIRECTORY/mermaid/` with both packages.
 
-Intermediate `.mmd` and `.pdf` files are output to the `mermaid/` directory right under the compilation directory. The file names will be a concatenation of the job name and a sequential number, such as `\jobname-mermaid-1.mmd`. This does not follow `-output-directory` / `TEXMF_OUTPUT_DIRECTORY`.
-
-#### For `ltmermaid`
-
-They are basically output to `mermaid/` in the same way, but when `-output-directory` is used, they are placed in `$TEXMF_OUTPUT_DIRECTORY/mermaid/`.
+A diagram is rendered only when its source or the renderer settings (`Renderer`, `\MermaidRendererOptions`, `\MermaidPdfFit` / `\MermaidNoPdfFit`) have changed since the last rendering. To render all diagrams again, delete the `mermaid/` directory.
 
 For full explanations and diagram examples, see `mermaid-doc.tex` / `mermaid-doc-ja.tex` (`mermaid`) and `ltmermaid-doc.tex` / `ltmermaid-doc-ja.tex` (`ltmermaid`).
 
@@ -153,15 +154,17 @@ For full explanations and diagram examples, see `mermaid-doc.tex` / `mermaid-doc
 
 ### `mermaid.sty`
 
+- Version 1.1 (2026-10-22): Supported Mermaid CLI 12 (`-f` is passed only for Mermaid CLI 11 or older; added `\MermaidPdfFit`), rendered diagrams only when their source or renderer settings change, and supported `-output-directory`.
 - Version 1.0c (2026-05-06): Various bug fixes.
-- Version 1.0b (2026-04-29): Added `\mermaidfile`support, Makefile build/test targets, and `l3build` regression testing
+- Version 1.0b (2026-04-29): Added `\mermaidfile` support, Makefile build/test targets, and `l3build` regression testing.
 - Version 1.0a (2026-04-20): Renamed sample documents.
 - Version 1.0 (2026-04-16): Stable release.
 
 ### `ltmermaid.sty`
 
+- Version 1.1 (2026-10-22): Supported Mermaid CLI 12 (`-f` is passed only for Mermaid CLI 11 or older; added `\MermaidPdfFit`), rendered diagrams only when their source or renderer settings change, and fixed output file name conflicts between the `mermaid` environment and `\mermaidfile`.
 - Version 1.0c (2026-05-06): Various bug fixes.
-- Version 1.0b (2026-04-29): Added `\mermaidfile`support, Makefile build/test targets, and `l3build` regression testing
+- Version 1.0b (2026-04-29): Added `\mermaidfile` support, Makefile build/test targets, and `l3build` regression testing.
 - Version 1.0a (2026-04-20): Renamed sample documents.
 - Version 1.0 (2026-04-16): Stable release.
 - Version 0.2 (2026-04-13): Removed `MERMAID_MMDC` and `MERMAID_MMDC_OPTIONS`.
