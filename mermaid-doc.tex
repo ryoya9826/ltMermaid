@@ -67,7 +67,7 @@
 \begin{abstract}
 \noindent
 \texttt{mermaid.sty} invokes the Mermaid CLI via \texttt{shellesc} and \verb|\write18|, renders Mermaid diagrams during a \LaTeXe{} run, and embeds them as PDF.
-It can be used with engines such as \upLaTeX, \pdfLaTeX, and \LuaLaTeX.
+It can be used with engines such as \upLaTeX, \pdfLaTeX, \XeLaTeX, and \LuaLaTeX.
 Rendering Mermaid diagrams requires the Mermaid CLI (\texttt{mmdc}, etc.) and headless Chromium (Puppeteer).
 Compile with shell escape enabled (\verb|-shell-escape|).
 \end{abstract}
@@ -126,8 +126,13 @@ flowchart LR
 Compile example:
 \begin{verbatim}
 pdflatex -shell-escape yourfile.tex
+xelatex  -shell-escape yourfile.tex
 lualatex -shell-escape yourfile.tex
 uplatex -shell-escape yourfile.tex && dvipdfmx yourfile.dvi
+\end{verbatim}
+With \upLaTeX{} + dvipdfmx, specify the \texttt{dvipdfmx} option, for example:
+\begin{verbatim}
+\documentclass[dvipdfmx]{article}
 \end{verbatim}
 
 \subsection{Layout adjustments (optional)}
@@ -174,9 +179,12 @@ flowchart LR
 {\small
 \begin{itemize}
 \item \textbf{\cmd{MermaidRendererOptions}\texttt{\{...\}}:}
-  Additional CLI arguments before \texttt{-i} / \texttt{-o} (when PDF fit is enabled, merged after the built-in \texttt{-f}).
-\item \textbf{\cmd{MermaidNoPdfFit}:}
-  Disables \texttt{-f} / \texttt{--pdfFit} for \texttt{mmdc} (by default this is \emph{enabled}).
+  Additional CLI arguments before \texttt{-i} / \texttt{-o} (merged after \texttt{-f} when it is passed).
+\item \textbf{\cmd{MermaidPdfFit} / \cmd{MermaidNoPdfFit}:}
+  Always / never pass \texttt{-f} (\texttt{--pdfFit}) to the renderer.
+  By default, \texttt{-f} is passed only when \texttt{<renderer> --version} reports Mermaid CLI 11 or older
+  (Mermaid CLI 12 removed \texttt{-f}). If the version cannot be detected, \texttt{-f} is not passed;
+  add \cmd{MermaidPdfFit} if you use Mermaid CLI 11 or older.
 \item \textbf{\cmd{MermaidAdjustBoxOpts}\texttt{\{...\}}:}
   Full list of \texttt{adjustbox} keys around \cmd{includegraphics} (default:
   \texttt{max width=0.9}\cmd{linewidth}\texttt{,center}).
@@ -202,7 +210,14 @@ The optional argument is forwarded directly to \cmd{includegraphics}, so valid k
 
 Intermediate \texttt{.mmd} files and rendered \texttt{.pdf} files are written under the \texttt{mermaid/}
 directory in the directory from which you run the compiler. File names are of the form
-\texttt{\jobname-mermaid-1.mmd}, \texttt{\jobname-mermaid-1.pdf}, \ldots, using \texttt{\jobname} (the job name) and a running index per diagram.
+\cmd{jobname}\texttt{-mermaid-1.mmd}, \cmd{jobname}\texttt{-mermaid-1.pdf}, \ldots, using \cmd{jobname} (the job name) and a running index per diagram.
+With \texttt{-output-directory} (e.g.\ \texttt{latexmk -outdir=build}), they are written under \texttt{mermaid/}
+inside the directory indicated by the environment variable \texttt{TEXMF\_OUTPUT\_DIRECTORY}.
+
+{\sloppy
+A diagram is rendered only when its source or the renderer settings (\texttt{Renderer},
+\cmd{MermaidRendererOptions}, \cmd{MermaidPdfFit} / \cmd{MermaidNoPdfFit}) have changed since the last
+rendering. To render all diagrams again, delete the \texttt{mermaid/} directory.\par}
 
 \section{Diagram examples}
 
@@ -375,6 +390,7 @@ stateDiagram-v2
 \section{Revision history}
 
 \begin{description}
+\item[Version 1.1 (2026-10-22)] Supported Mermaid CLI 12 (\texttt{-f} is passed only for Mermaid CLI 11 or older; added \cmd{MermaidPdfFit}), rendered diagrams only when their source or renderer settings change, and supported \texttt{-output-directory}.
 \item[Version 1.0c (2026-05-06)] Various bug fixes.
 \item[Version 1.0b (2026-04-29)] Added \cmd{mermaidfile} support, Makefile build/test targets, and \texttt{l3build} regression testing.
 \item[Version 1.0a (2026-04-20)] Renamed sample documents.

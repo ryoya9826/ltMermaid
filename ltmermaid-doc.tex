@@ -175,10 +175,12 @@ flowchart LR
 {\small
 \begin{itemize}
 \item \textbf{\cmd{MermaidRendererOptions}\texttt{\{...\}}:}
-  Extra CLI arguments before \texttt{-i} / \texttt{-o} (merged after the built-in \texttt{-f} when
-  PDF fit is enabled).
-\item \textbf{\cmd{MermaidNoPdfFit}:}
-  Disables \texttt{-f} / \texttt{--pdfFit} for \texttt{mmdc} (by default this is \emph{on}).
+  Extra CLI arguments before \texttt{-i} / \texttt{-o} (merged after \texttt{-f} when it is passed).
+\item \textbf{\cmd{MermaidPdfFit} / \cmd{MermaidNoPdfFit}:}
+  Always / never pass \texttt{-f} (\texttt{--pdfFit}) to the renderer.
+  By default, \texttt{-f} is passed only when \texttt{<renderer> --version} reports Mermaid CLI 11 or older
+  (Mermaid CLI 12 removed \texttt{-f}). If the version cannot be detected, \texttt{-f} is not passed;
+  add \cmd{MermaidPdfFit} if you use Mermaid CLI 11 or older.
 \item \textbf{\cmd{MermaidAdjustBoxOpts}\texttt{\{...\}}:}
   Full \texttt{adjustbox} key list around \cmd{includegraphics} (default
   \texttt{max width=0.9}\cmd{linewidth}\texttt{,center}).
@@ -206,6 +208,11 @@ Intermediate \texttt{.mmd} and \texttt{.pdf} files are written under the \texttt
 directory relative to the directory where compilation runs. With \texttt{-output-directory},
 they are written under \texttt{mermaid/} inside the directory indicated by the environment variable
 \texttt{TEXMF\_OUTPUT\_DIRECTORY}.
+
+{\sloppy
+A diagram is rendered only when its source or the renderer settings (\texttt{Renderer},
+\cmd{MermaidRendererOptions}, \cmd{MermaidPdfFit} / \cmd{MermaidNoPdfFit}) have changed since the last
+rendering. To render all diagrams again, delete the \texttt{mermaid/} directory.\par}
 
 \section{Examples}
 
@@ -378,6 +385,7 @@ stateDiagram-v2
 \section{Version history}
 
 \begin{description}
+\item[Version 1.1 (2026-10-22)] \sloppy Supported Mermaid CLI 12 (\texttt{-f} is passed only for Mermaid CLI 11 or older; added \cmd{MermaidPdfFit}), rendered diagrams only when their source or renderer settings change, and fixed output file name conflicts between the \texttt{mermaid} environment and \cmd{mermaidfile}.
 \item[Version 1.0c (2026-05-06)] Various bug fixes.
 \item[Version 1.0b (2026-04-29)] Added \cmd{mermaidfile} support, Makefile build/test targets, and \texttt{l3build} regression testing.
 \item[Version 1.0a (2026-04-20)] Renamed sample documents.

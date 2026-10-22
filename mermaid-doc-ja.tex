@@ -67,7 +67,7 @@
 \begin{abstract}
 \noindent
 \texttt{mermaid.sty} は \texttt{shellesc} や \verb|\write18| を介して Mermaid CLI を起動し，\LaTeXe{} におけるコンパイル時に Mermaid 図をレンダリングして PDF として取り込むパッケージです．
-\upLaTeX, \pdfLaTeX, \LuaLaTeX などのエンジンで利用可能です．
+\upLaTeX, \pdfLaTeX, \XeLaTeX, \LuaLaTeX などのエンジンで利用可能です．
 Mermaid 図のレンダリングには，Mermaid CLI（\texttt{mmdc} など）とヘッドレス Chromium（Puppeteer）が必要です．また，コンパイルの際は必ずシェルエスケープ（\verb|-shell-escape|）を有効にしてください．
 \end{abstract}
 
@@ -123,8 +123,13 @@ flowchart LR
 コンパイル例:
 \begin{verbatim}
 pdflatex -shell-escape yourfile.tex
+xelatex  -shell-escape yourfile.tex
 lualatex -shell-escape yourfile.tex
 uplatex -shell-escape yourfile.tex && dvipdfmx yourfile.dvi
+\end{verbatim}
+\upLaTeX{} + dvipdfmx で使う場合は，次のように \texttt{dvipdfmx} オプションを指定してください．
+\begin{verbatim}
+\documentclass[dvipdfmx]{article}
 \end{verbatim}
 
 \subsection{レイアウトの調整（任意）}
@@ -169,9 +174,12 @@ flowchart LR
 \begin{itemize}
 \small
 \item \textbf{\cmd{MermaidRendererOptions}\texttt{\{...\}}:}
-  \texttt{-i} / \texttt{-o} の前に付ける追加の CLI 引数（PDF fit 有効時は組み込みの \texttt{-f} の後に結合）．
-\item \textbf{\cmd{MermaidNoPdfFit}:}
-  \texttt{mmdc} の \texttt{-f} / \texttt{--pdfFit} を無効化（デフォルトでは \emph{有効}）．
+  \texttt{-i} / \texttt{-o} の前に付ける追加の CLI 引数（\texttt{-f} を渡す場合はその後に結合）．
+\item \textbf{\cmd{MermaidPdfFit} / \cmd{MermaidNoPdfFit}:}
+  レンダラーに \texttt{-f}（\texttt{--pdfFit}）を常に渡す／渡さない．
+  デフォルトでは，\texttt{<レンダラー> --version} が Mermaid CLI 11 以前を示すときだけ \texttt{-f} を渡します
+  （Mermaid CLI 12 で \texttt{-f} は廃止されました）．バージョンを判定できないときは \texttt{-f} を渡さないため，
+  Mermaid CLI 11 以前を使う場合は \cmd{MermaidPdfFit} を指定してください．
 \item \textbf{\cmd{MermaidAdjustBoxOpts}\texttt{\{...\}}:}
   \cmd{includegraphics} を囲む \texttt{adjustbox} のキー一式（デフォルトでは
   \texttt{max width=0.9}\cmd{linewidth}\texttt{,center}）．
@@ -194,7 +202,13 @@ flowchart LR
 
 \section{出力ファイル}
 
-中間ファイルである \texttt{.mmd} と，レンダリング結果の \texttt{.pdf} は，コンパイルを実行したディレクトリ内の \texttt{mermaid/} フォルダに書き出されます．ファイル名には \texttt{\jobname-mermaid-1.mmd} や \texttt{\jobname-mermaid-1.pdf} のように，\texttt{\jobname}（ジョブ名）と通し番号が付与されます．
+中間ファイルである \texttt{.mmd} と，レンダリング結果の \texttt{.pdf} は，コンパイルを実行したディレクトリ内の \texttt{mermaid/} フォルダに書き出されます．ファイル名には \cmd{jobname}\texttt{-mermaid-1.mmd} や \cmd{jobname}\texttt{-mermaid-1.pdf} のように，\cmd{jobname}（ジョブ名）と通し番号が付与されます．
+\texttt{-output-directory} 使用時（例：\texttt{latexmk -outdir=build}）は，環境変数
+\texttt{TEXMF\_OUTPUT\_DIRECTORY} が指すディレクトリ内の \texttt{mermaid/} に出力されます．
+
+図をレンダリングするのは，前回のレンダリング以降にソースかレンダラーの設定
+（\texttt{Renderer}，\cmd{MermaidRendererOptions}，\cmd{MermaidPdfFit} / \cmd{MermaidNoPdfFit}）が
+変わったときだけです．すべての図をレンダリングし直すには，\texttt{mermaid/} ディレクトリを削除してください．
 
 \section{図の例}
 
@@ -367,6 +381,7 @@ stateDiagram-v2
 \section{更新履歴}
 
 \begin{description}
+\item[Version 1.1（2026-10-22）] Mermaid CLI 12 に対応（\texttt{-f} は Mermaid CLI 11 以前のときだけ渡すように変更し，\cmd{MermaidPdfFit} を追加）．ソースかレンダラーの設定が変わったときだけ図をレンダリングするように変更．\texttt{-output-directory} に対応．
 \item[Version 1.0c（2026-05-06）] Various bug fixes.
 \item[Version 1.0b（2026-04-29）] Added \cmd{mermaidfile} support, Makefile build/test targets, and \texttt{l3build} regression testing.
 \item[Version 1.0a（2026-04-20）] Renamed sample documents.

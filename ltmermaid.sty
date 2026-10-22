@@ -10,7 +10,7 @@
 % and version 1.3c or later is part of all distributions of LaTeX
 % version 2008/05/04 or later.
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{ltmermaid}[2026/05/06 v1.0c Mermaid via Mermaid CLI / PDF]
+\ProvidesPackage{ltmermaid}[2026/10/22 v1.1 Mermaid via Mermaid CLI / PDF]
 \RequirePackage{ifluatex}
 \ifluatex\else
   \PackageError{ltmermaid}{This package requires LuaLaTeX (lualatex).}{}
@@ -174,43 +174,108 @@ local function output_pdf_missing(renderer, out_abs)
   end
   tex.error(msg)
 end
-local function output_up_to_date(in_abs, out_abs)
-  local inf_attr = lfs.attributes(in_abs)
-  local out_attr = lfs.attributes(out_abs)
-  if inf_attr and out_attr and inf_attr.modification and out_attr.modification then
-    return out_attr.modification >= inf_attr.modification
+local function read_file(path)
+  local f = io.open(path, "rb")
+  if not f then
+    return nil
   end
-  return false
+  local content = f:read("*a")
+  f:close()
+  return content
+end
+local function write_file(path, content)
+  local f = io.open(path, "wb")
+  if not f then
+    return false
+  end
+  f:write(content)
+  f:close()
+  return true
+end
+-- 前回描画時のソースとオプションを保存するスタンプファイルのパス
+local function stamp_path(out_abs)
+  return (out_abs:gsub("%.pdf$", "")) .. ".stamp"
+end
+-- Mermaid CLI のメジャーバージョンを返す（判定できなければ nil）．結果はレンダラーごとにキャッシュする
+mermaid_cli._majors = mermaid_cli._majors or {}
+local function renderer_major_version(renderer)
+  local cached = mermaid_cli._majors[renderer]
+  if cached ~= nil then
+    return cached or nil
+  end
+  local major = false
+  local p = io.popen(renderer .. " --version 2>&1")
+  if p then
+    for line in p:lines() do
+      local m = line:match("^%s*v?(%d+)%.%d+%.%d+")
+      if m then
+        major = tonumber(m)
+        break
+      end
+    end
+    p:close()
+  end
+  mermaid_cli._majors[renderer] = major
+  return major or nil
+end
+-- -f（--pdfFit）は Mermaid CLI 12 で廃止されたため，"auto" では 11 以前のときだけ付ける
+local function resolve_pdffit(setting, renderer)
+  if setting ~= "auto" then
+    return setting
+  end
+  local major = renderer_major_version(renderer)
+  if major == nil then
+    mermaid_log("pdf-fit: could not detect the Mermaid CLI version; -f is not passed (use \\MermaidPdfFit for Mermaid CLI 11 or older)")
+    return ""
+  end
+  if major < 12 then
+    mermaid_log("pdf-fit: Mermaid CLI " .. tostring(major) .. " detected; passing -f")
+    return "-f"
+  end
+  mermaid_log("pdf-fit: Mermaid CLI " .. tostring(major) .. " detected; PDFs are fitted by default")
+  return ""
 end
 local function verify_pdf(path)
   local f, err = io.open(path, "rb")
   if not f then
     tex.error("ltmermaid: cannot open PDF (" .. tostring(err) .. "): " .. path)
-    return
+    return false
   end
   local head = f:read(5)
   f:close()
   if not head or string.len(head) < 4 or string.sub(head, 1, 4) ~= "%PDF" then
     tex.error("ltmermaid: PDF is invalid or corrupt (check mmdc and Mermaid syntax). Path: " .. path)
-    return
+    return false
   end
+  return true
 end
 function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
   local renderer = resolve_renderer(tex_cmd)
   local xargs = resolve_extra_args(tex_xargs)
-  local fit = (tex_pdffit or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  local fit_setting = (tex_pdffit or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  local inf_abs = mermaid_cli.resolve_path(inf)
+  local out_abs = mermaid_cli.resolve_path(outf)
+  -- 更新時刻ではなく内容で判定する．Mermaid CLI の PDF は毎回バイト列が変わるため，
+  -- 不要な再描画は latexmk の収束を妨げる
+  local stamp_abs = stamp_path(out_abs)
+  local source = read_file(inf_abs)
+  local stamp
+  if source then
+    stamp = "renderer: " .. renderer .. "\npdffit: " .. fit_setting .. "\nargs: " .. xargs .. "\n\n" .. source
+  end
+  if stamp and lfs.attributes(out_abs, "mode") == "file" and read_file(stamp_abs) == stamp then
+    mermaid_log("renderer skipped: source and options unchanged since last rendering")
+    return
+  end
+  os.remove(stamp_abs)
+  os.remove(out_abs)
+  local fit = resolve_pdffit(fit_setting, renderer)
   if fit ~= "" then
     if string.match(xargs or "", "%S") then
       xargs = fit .. " " .. xargs
     else
       xargs = fit
     end
-  end
-  local inf_abs = mermaid_cli.resolve_path(inf)
-  local out_abs = mermaid_cli.resolve_path(outf)
-  if output_up_to_date(inf_abs, out_abs) then
-    mermaid_log("renderer skipped: output is newer than input")
-    return
   end
   local cmd = renderer
   if string.match(xargs or "", "%S") then
@@ -266,7 +331,12 @@ function mermaid_cli.run(inf, outf, tex_cmd, tex_xargs, tex_pdffit)
     output_pdf_missing(renderer, out_abs)
     return
   end
-  verify_pdf(out_abs)
+  if not verify_pdf(out_abs) then
+    return
+  end
+  if stamp then
+    write_file(stamp_abs, stamp)
+  end
   mermaid_log("output PDF size (bytes): " .. file_size_bytes(out_abs))
   mermaid_log("%PDF header check: OK")
   mermaid_log("----------")
@@ -290,14 +360,13 @@ end
         \def\mermaid@graphicsoptsmerged{\mermaid@graphicsopts,\mermaid@envgraphicsopts}%
       \fi
     \fi
+    % 環境と同じカウンタで連番を振り，出力ファイル名の衝突を防ぐ
+    \global\advance\c@mermaid@diag\@ne\relax
     \directlua{%
-      mermaid_cli.ensure_mermaid_root()
-      mermaid_cli._diag = (mermaid_cli._diag or 0) + 1
       local inpath = \luastring{#2}
-      local outf = tex.jobname .. "-mermaid-" .. tostring(mermaid_cli._diag) .. ".pdf"
-      local outpath = "mermaid/" .. outf
+      local outpath = mermaid_cli.path_for_diag(\the\c@mermaid@diag, "pdf")
       mermaid_cli.run(inpath, outpath, \luastring{\mermaid@cmd}, \luastring{\mermaid@xargs}, \luastring{\mermaid@pdffit})
-      if lfs.attributes(outpath) then
+      if lfs.attributes(mermaid_cli.resolve_path(outpath)) then
         tex.sprint("\\begin{center}\\adjustbox{" .. \luastring{\mermaid@boxopts} .. "}{\\includegraphics[" .. \luastring{\mermaid@graphicsoptsmerged} .. "]{" .. outpath .. "}}\\end{center}")
       else
         tex.error("ltmermaid: PDF was not produced: " .. outpath)
@@ -315,7 +384,9 @@ end
   \fi
 }
 \newcommand{\MermaidRendererOptions}[1]{\def\mermaid@xargs{#1}}
-\def\mermaid@pdffit{-f}
+% auto: Mermaid CLI 11 以前のときだけ -f を付ける
+\def\mermaid@pdffit{auto}
+\newcommand{\MermaidPdfFit}{\def\mermaid@pdffit{-f}}
 \newcommand{\MermaidNoPdfFit}{\def\mermaid@pdffit{}}
 \def\mermaid@graphicsopts{}
 \newcommand{\MermaidGraphicsOpts}[1]{\def\mermaid@graphicsopts{#1}}
