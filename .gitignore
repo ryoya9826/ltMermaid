@@ -16,3 +16,5 @@ mermaid/
 build/
 out/
 
+# l3build テストで生成される PDF
+testfiles/*.pdf
