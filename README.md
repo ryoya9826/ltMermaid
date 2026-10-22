@@ -1,4 +1,4 @@
-# LaTeX Packages to Embed Mermaid Diagrams (`mermaid` / `ltmermaid`)
+# LaTeX Packages to Embed Mermaid Diagrams (`mermaid` / `ltmermaid`) [![CTAN](https://img.shields.io/badge/CTAN-ltmermaid-blue.svg?style=flat-square)](https://ctan.org/pkg/ltmermaid)
 
 Embed [Mermaid](https://mermaid.js.org/) diagrams in LaTeX. Diagram sources are written to disk, and the [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) (`mmdc`) renders vector PDFs, which are then included using `\includegraphics`.
 
