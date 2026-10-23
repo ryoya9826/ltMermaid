@@ -20,8 +20,6 @@
 \DeclareStringOption[]{Renderer}
 \ProcessKeyvalOptions*
 
-\newread\mermaid@login
-\newwrite\mermaid@optsout
 \def\mermaid@cmd{}
 \def\mermaid@xargs{}
 \AtEndOfPackage{%
@@ -36,10 +34,6 @@
 \def\mermaid@pdffit{auto}
 \newcommand{\MermaidPdfFit}{\def\mermaid@pdffit{-f}}
 \newcommand{\MermaidNoPdfFit}{\def\mermaid@pdffit{}}
-% シェル変数 D に出力ディレクトリ（-output-directory 未指定時は .）を設定する前置き
-\def\mermaid@shoutdir{D=$TEXMF_OUTPUT_DIRECTORY; [ -n "$D" ] || D=.;}
-% `mmdc --version` の出力からメジャーバージョンを取り出す sed スクリプト
-\edef\mermaid@sedmajor{\detokenize{s/^ *v*\([0-9][0-9]*\)\.[0-9][0-9]*\.[0-9][0-9]*.*$/\1/p}}
 \def\mermaid@graphicsopts{}
 \newcommand{\MermaidGraphicsOpts}[1]{\def\mermaid@graphicsopts{#1}}
 \def\mermaid@boxopts{max width=0.9\linewidth,center}
@@ -52,19 +46,6 @@
   \fi
 }
 \def\mermaid@log#1{\typeout{[mermaid] #1}}
-\def\mermaid@mkdir{\ShellEscape{\mermaid@shoutdir\space mkdir -p "$D/mermaid"}}
-\def\mermaid@logcwd{%
-  \edef\mermaid@cwdfile{mermaid/mermaid-cwd-\the\c@mermaid@diag.txt}%
-  \ShellEscape{\mermaid@shoutdir\space pwd > "$D/\mermaid@cwdfile"}%
-  \openin\mermaid@login=\mermaid@cwdfile\relax
-  \ifeof\mermaid@login
-    \mermaid@log{cwd: (unavailable)}%
-  \else
-    \read\mermaid@login to \mermaid@cwdline
-    \closein\mermaid@login
-    \mermaid@log{cwd: \mermaid@cwdline}%
-  \fi
-}
 % pdfTeX / LuaTeX の PDF 出力以外（DVI 出力と XeTeX）かどうか
 \newif\ifmermaid@needabs
 \def\mermaid@checkneedabs{%
@@ -89,112 +70,294 @@
     \global\mermaid@prefixreadytrue
     \mermaid@checkneedabs
     \ifmermaid@needabs
-      \edef\mermaid@outdirfile{mermaid/\jobname-mermaid-outdir.txt}%
-      \ShellEscape{\mermaid@shoutdir\space if [ "$D" != . ]; then cd "$D" && pwd; fi > "$D/\mermaid@outdirfile"}%
-      \begingroup
-        \endlinechar=\m@ne
-        \openin\mermaid@login=\mermaid@outdirfile\relax
-        \ifeof\mermaid@login\else
-          % パスに _ や ~ が含まれても壊れないよう，\readline で文字として読む
-          \readline\mermaid@login to \mermaid@outdirline
-          \closein\mermaid@login
-          \ifx\mermaid@outdirline\@empty\else
-            \xdef\mermaid@includeprefix{\mermaid@outdirline/}%
-          \fi
-        \fi
-      \endgroup
+      \mermaid@findincludeprefix
       \ifx\mermaid@includeprefix\@empty\else
         \mermaid@log{-output-directory without direct PDF output: including diagrams by absolute path (\mermaid@includeprefix)}%
       \fi
     \fi
   \fi
 }
-% 絶対パスで取り込むときは，BoundingBox を書いた .xbb を図の隣に用意しておく．
-% dvipdfmx.def はパスを引用符で囲まずに extractbb を呼ぶため，空白を含むパスで失敗する．
-% .xbb には作成日時が入るので，PDF より古いときだけ作り直す（latexmk の収束を妨げないため）
 \def\mermaid@makexbb{%
   \ifx\mermaid@includeprefix\@empty\else
-    \ShellEscape{\mermaid@shoutdir\space O="$D/\mermaid@base.pdf"; X="$D/\mermaid@base.xbb"; [ "$X" -nt "$O" ] || extractbb -O "$O" > "$X"}%
+    \mermaid@makexbb@aux
   \fi
 }
+
+% シェルに渡すコマンドは，POSIX シェル（sh）と Windows のコマンドプロンプト（cmd.exe）の
+% どちらでも同じ意味になる書き方に限る（"…" で囲んだパスと >，>>，2> のリダイレクトだけを使う）．
+% 前回描画時との比較や Mermaid CLI のバージョン判定は TeX の側で行う．
+% OS で書き方が変わるのは，mermaid/ を作る mkdir だけ
+\ExplSyntaxOn
+\str_new:N \g__mermaid_outdir_str
+\str_new:N \g__mermaid_cwd_str
+\bool_new:N \g__mermaid_init_bool
+\bool_new:N \g__mermaid_ok_bool
+\bool_new:N \g__mermaid_rendered_bool
+\bool_new:N \l__mermaid_src_bool
+\prop_new:N \g__mermaid_major_prop
+\ior_new:N \g__mermaid_ior
+\iow_new:N \g__mermaid_iow
+\str_new:N \l__mermaid_renderer_str
+\str_new:N \l__mermaid_pdffit_str
+\str_new:N \l__mermaid_xargs_str
+\str_new:N \l__mermaid_fit_str
+\str_new:N \l__mermaid_major_str
+\str_new:N \l__mermaid_key_str
+\str_new:N \l__mermaid_cmd_str
+\str_new:N \l__mermaid_tmp_str
+\tl_new:N \l__mermaid_tmp_tl
+\seq_new:N \l__mermaid_tmp_seq
+\cs_generate_variant:Nn \str_replace_all:Nnn { NVn , NnV }
+\cs_generate_variant:Nn \regex_extract_once:nnNT { nV }
+\cs_generate_variant:Nn \regex_match:nnTF { nV }
+
+% シェルから見た出力ディレクトリ（-output-directory 未指定時は .）
+\cs_new:Npn \mermaid@outdir { \g__mermaid_outdir_str }
+\cs_new:Npn \mermaid@ifok { \bool_if:NTF \g__mermaid_ok_bool }
+% 最初の図の前に一度だけ，出力ディレクトリと作業ディレクトリを調べて mermaid/ を作る
+\cs_new_protected:Npn \mermaid@init
+  {
+    \bool_if:NF \g__mermaid_init_bool
+      {
+        \bool_gset_true:N \g__mermaid_init_bool
+        % -output-directory を指定すると，TeX Live は環境変数 TEXMF_OUTPUT_DIRECTORY を設定する
+        \sys_get_shell:nnNTF { kpsewhich ~ -var-value=TEXMF_OUTPUT_DIRECTORY }
+          { \cctab_select:N \c_str_cctab \int_set:Nn \tex_endlinechar:D { -1 } }
+          \l__mermaid_tmp_tl
+          { \str_set:Nx \l__mermaid_tmp_str { \tl_trim_spaces:o { \l__mermaid_tmp_tl } } }
+          { \str_clear:N \l__mermaid_tmp_str }
+        \str_replace_all:NVn \l__mermaid_tmp_str \c_backslash_str { / }
+        \str_if_empty:NT \l__mermaid_tmp_str { \str_set:Nn \l__mermaid_tmp_str { . } }
+        \str_gset_eq:NN \g__mermaid_outdir_str \l__mermaid_tmp_str
+        \__mermaid_mkdir:
+        \__mermaid_get_cwd:
+      }
+  }
+% cmd.exe の mkdir は -p を受け付けず，途中のディレクトリも作る．パスの区切りは \ にする
+\cs_new_protected:Npn \__mermaid_mkdir:
+  {
+    \sys_if_platform_windows:TF
+      {
+        \str_set_eq:NN \l__mermaid_tmp_str \g__mermaid_outdir_str
+        \str_replace_all:NnV \l__mermaid_tmp_str { / } \c_backslash_str
+        \sys_shell_now:x
+          { mkdir ~ " \l__mermaid_tmp_str \c_backslash_str mermaid " ~ 2>nul }
+      }
+      { \sys_shell_now:x { mkdir ~ -p ~ " \g__mermaid_outdir_str /mermaid " } }
+  }
+% 作業ディレクトリ．cmd.exe の cd は日本語を含むパスを UTF-8 で出力しないため，
+% texlua の lfs.currentdir() で調べる（texlua -e は使えないので，スクリプトを書き出して実行する）
+\cs_new_protected:Npn \__mermaid_get_cwd:
+  {
+    \iow_open:Nn \g__mermaid_iow { mermaid/ \jobname -mermaid-cwd.lua }
+    \iow_now:Nn \g__mermaid_iow { io.write(lfs.currentdir()) }
+    \iow_close:N \g__mermaid_iow
+    \sys_shell_now:x
+      {
+        texlua ~ " \g__mermaid_outdir_str /mermaid/ \jobname -mermaid-cwd.lua "
+        \c_space_tl > ~ " \g__mermaid_outdir_str /mermaid/ \jobname -mermaid-cwd.txt "
+      }
+    \str_clear:N \l__mermaid_tmp_str
+    \ior_open:NnT \g__mermaid_ior { mermaid/ \jobname -mermaid-cwd.txt }
+      {
+        \ior_str_get:NN \g__mermaid_ior \l__mermaid_tmp_str
+        \ior_close:N \g__mermaid_ior
+      }
+    \str_replace_all:NVn \l__mermaid_tmp_str \c_backslash_str { / }
+    \str_gset_eq:NN \g__mermaid_cwd_str \l__mermaid_tmp_str
+  }
+% Mermaid CLI のメジャーバージョン（判定できなければ空）．結果はレンダラーごとに覚えておく
+\cs_new_protected:Npn \__mermaid_get_major:n #1
+  {
+    \prop_get:NnNF \g__mermaid_major_prop {#1} \l__mermaid_major_str
+      {
+        \str_clear:N \l__mermaid_major_str
+        \sys_get_shell:nnNT { #1 ~ --version } { \cctab_select:N \c_str_cctab } \l__mermaid_tmp_tl
+          {
+            \regex_extract_once:nVNT { (\d+) \. \d+ \. \d+ } \l__mermaid_tmp_tl \l__mermaid_tmp_seq
+              { \str_set:Nx \l__mermaid_major_str { \seq_item:Nn \l__mermaid_tmp_seq { 2 } } }
+          }
+        \prop_gput:NnV \g__mermaid_major_prop {#1} \l__mermaid_major_str
+      }
+  }
+\cs_generate_variant:Nn \__mermaid_get_major:n { V }
+% ファイルの先頭が %PDF かどうか
+\prg_new_protected_conditional:Npnn \__mermaid_if_pdf:n #1 { TF }
+  {
+    \ior_open:NnTF \g__mermaid_ior {#1}
+      {
+        \ior_str_get:NN \g__mermaid_ior \l__mermaid_tmp_str
+        \ior_close:N \g__mermaid_ior
+        \str_if_eq:eeTF { \str_range:Nnn \l__mermaid_tmp_str { 1 } { 4 } } { \c_percent_str PDF }
+          { \prg_return_true: } { \prg_return_false: }
+      }
+      { \prg_return_false: }
+  }
+\cs_new_protected:Npn \__mermaid_truncate:n #1
+  {
+    \iow_open:Nn \g__mermaid_iow {#1}
+    \iow_close:N \g__mermaid_iow
+  }
+\cs_new_protected:Npn \__mermaid_write_out:n #1
+  {
+    \iow_open:Nn \g__mermaid_iow { \mermaid@base .out }
+    \tl_if_empty:nF {#1} { \iow_now:Nx \g__mermaid_iow {#1} }
+    \iow_close:N \g__mermaid_iow
+  }
 % #1: TeX から見た入力パス，#2: シェルに渡す入力パス，#3: TeX から見た出力パス
 % TeX は -output-directory 配下のファイルも見つけるが，シェルは作業ディレクトリで
-% 動くため，mermaid/ 配下のパスには "$D/" を前置して渡す
-\def\mermaid@run#1#2#3{%
-  \mermaid@resolverenderer
-  \edef\mermaid@infile{#1}%
-  \edef\mermaid@outfile{#3}%
-  \edef\mermaid@base{mermaid/\jobname-mermaid-\the\c@mermaid@diag}%
-  \edef\mermaid@stdout{\mermaid@base.out}%
-  \edef\mermaid@stderr{\mermaid@base.err}%
-  \mermaid@mkdir
-  \mermaid@log{----------}%
-  \mermaid@log{diagram \the\c@mermaid@diag: #1 -> #3}%
-  \mermaid@logcwd
-  \mermaid@log{renderer (resolved): \mermaid@resolvedrenderer}%
-  \mermaid@log{pdf-fit: \ifx\mermaid@pdffit\@empty off\else\mermaid@pdffit\fi}%
-  \ifx\mermaid@xargs\@empty\else
-    \mermaid@log{CLI extra args: \mermaid@xargs}%
-  \fi
-  % 前回描画時のソースとオプションを比べるための見出し部分を書き出す
-  \immediate\openout\mermaid@optsout=\mermaid@base.opts\relax
-  \immediate\write\mermaid@optsout{renderer: \expandafter\detokenize\expandafter{\mermaid@resolvedrenderer}}%
-  \immediate\write\mermaid@optsout{pdffit: \expandafter\detokenize\expandafter{\mermaid@pdffit}}%
-  \immediate\write\mermaid@optsout{args: \expandafter\detokenize\expandafter{\mermaid@xargs}}%
-  \immediate\write\mermaid@optsout{}%
-  \immediate\closeout\mermaid@optsout
-  % 内容（ソースとオプション）が前回描画時と同じならスキップする．Mermaid CLI の PDF は
-  % 毎回バイト列が変わるため，不要な再描画は latexmk の収束を妨げる
-  \edef\mermaid@shcmd{%
-    \mermaid@shoutdir\space
-    I="#2"; O="$D/\mermaid@outfile"; S="$D/\mermaid@base.stamp"; N="$S.new";
-    cat "$D/\mermaid@base.opts" "$I" > "$N" 2>/dev/null;
-    if [ -f "$O" ] && cmp -s "$N" "$S"; then
-      rm -f "$N";
-      echo "renderer skipped: source and options unchanged since last rendering" > "$D/\mermaid@stdout";
-    else
-      F="\expandafter\detokenize\expandafter{\mermaid@pdffit}";
-      if [ "$F" = auto ]; then
-        F=; M=$(\expandafter\detokenize\expandafter{\mermaid@resolvedrenderer} --version 2>/dev/null | sed -n '\mermaid@sedmajor' | head -n 1);
-        if [ -n "$M" ] && [ "$M" -lt 12 ]; then F=-f; fi;
-        echo "pdf-fit: auto -> '$F' (Mermaid CLI major version: '$M')" > "$D/\mermaid@stdout";
-      else
-        : > "$D/\mermaid@stdout";
-      fi;
-      rm -f "$O" "$S";
-      \expandafter\detokenize\expandafter{\mermaid@resolvedrenderer} $F \expandafter\detokenize\expandafter{\mermaid@xargs} -i "$I" -o "$O" >>"$D/\mermaid@stdout" 2>"$D/\mermaid@stderr" && [ -f "$O" ] && mv -f "$N" "$S";
-    fi
-  }%
-  \mermaid@log{full shell command: \mermaid@shcmd}%
-  \ifcsname pdffilesize\endcsname
-    \IfFileExists{\mermaid@infile}{%
-      \mermaid@log{.mmd size (bytes): \pdffilesize{\mermaid@infile}}%
-    }{%
-      \mermaid@log{.mmd size (bytes): (missing)}%
-    }%
-  \else
-    \mermaid@log{.mmd size (bytes): unavailable (no pdffilesize on this engine)}%
-  \fi
-  \ifcsname pdfresettimer\endcsname\pdfresettimer\fi
-  \immediate\write18{\mermaid@shcmd}%
-  \ifcsname pdfelapsedtime\endcsname
-    \mermaid@log{timing: \the\pdfelapsedtime\space ms (pdfelapsedtime)}%
-  \else
-    \mermaid@log{timing: (pdfelapsedtime not available on this engine)}%
-  \fi
-  \IfFileExists{\mermaid@outfile}{%
-    \mermaid@log{renderer subprocess: finished (parsed as success)}%
-    \ifcsname pdffilesize\endcsname
-      \mermaid@log{output PDF size (bytes): \pdffilesize{\mermaid@outfile}}%
-    \else
-      \mermaid@log{output PDF size (bytes): unavailable}%
-    \fi
-    \mermaid@log{PDF header check: OK}%
-    \mermaid@log{----------}%
-  }{%
-    \mermaid@log{expected output PDF missing after write18 (exit status not checked)}%
-  }%
-}
+% 動くため，mermaid/ 配下のパスには出力ディレクトリを前置して渡す
+\cs_new_protected:Npn \mermaid@run #1#2#3
+  {
+    \mermaid@init
+    \mermaid@resolverenderer
+    \tl_set:Nx \mermaid@infile {#1}
+    \tl_set:Nx \mermaid@outfile {#3}
+    \tl_set:Nx \mermaid@base { mermaid/ \jobname -mermaid- \int_use:N \c@mermaid@diag }
+    \str_set:Nx \l__mermaid_renderer_str { \tl_to_str:N \mermaid@resolvedrenderer }
+    \str_set:Nx \l__mermaid_pdffit_str { \tl_to_str:N \mermaid@pdffit }
+    \str_set:Nx \l__mermaid_xargs_str { \tl_to_str:N \mermaid@xargs }
+    \mermaid@log { ---------- }
+    \mermaid@log { diagram ~ \int_use:N \c@mermaid@diag \c_colon_str \c_space_tl #1 ~ -> ~ #3 }
+    \mermaid@log { cwd: ~ \str_if_empty:NTF \g__mermaid_cwd_str { (unavailable) } { \g__mermaid_cwd_str } }
+    \mermaid@log { renderer ~ (resolved): ~ \l__mermaid_renderer_str }
+    \mermaid@log { pdf-fit: ~ \str_if_empty:NTF \l__mermaid_pdffit_str { off } { \l__mermaid_pdffit_str } }
+    \str_if_empty:NF \l__mermaid_xargs_str
+      { \mermaid@log { CLI ~ extra ~ args: ~ \l__mermaid_xargs_str } }
+    % 前回描画時と比べるためのキー．オプションとソースの各行の MD5 をつないで，さらに MD5 を取る
+    \str_set:Nx \l__mermaid_key_str
+      {
+        \exp_args:NV \str_mdfive_hash:n \l__mermaid_renderer_str
+        \exp_args:NV \str_mdfive_hash:n \l__mermaid_pdffit_str
+        \exp_args:NV \str_mdfive_hash:n \l__mermaid_xargs_str
+      }
+    \bool_set_false:N \l__mermaid_src_bool
+    \ior_open:NnT \g__mermaid_ior {#1}
+      {
+        \bool_set_true:N \l__mermaid_src_bool
+        \ior_str_map_inline:Nn \g__mermaid_ior
+          { \str_put_right:Nx \l__mermaid_key_str { \str_mdfive_hash:n {##1} } }
+        \ior_close:N \g__mermaid_ior
+      }
+    \str_set:Nx \l__mermaid_key_str { \exp_args:NV \str_mdfive_hash:n \l__mermaid_key_str }
+    \str_clear:N \l__mermaid_tmp_str
+    \ior_open:NnT \g__mermaid_ior { \mermaid@base .stamp }
+      {
+        \ior_str_get:NN \g__mermaid_ior \l__mermaid_tmp_str
+        \ior_close:N \g__mermaid_ior
+      }
+    \bool_gset_false:N \g__mermaid_rendered_bool
+    % 内容（ソースとオプション）が前回描画時と同じならスキップする．Mermaid CLI の PDF は
+    % 毎回バイト列が変わるため，不要な再描画は latexmk の収束を妨げる
+    \bool_lazy_and:nnTF
+      { \l__mermaid_src_bool }
+      { \str_if_eq_p:NN \l__mermaid_tmp_str \l__mermaid_key_str }
+      { \__mermaid_if_pdf:nTF {#3} { \__mermaid_skip: } { \__mermaid_render:nn {#2} {#3} } }
+      { \__mermaid_render:nn {#2} {#3} }
+  }
+\cs_new_protected:Npn \__mermaid_skip:
+  {
+    \str_set:Nn \l__mermaid_tmp_str
+      { renderer ~ skipped: ~ source ~ and ~ options ~ unchanged ~ since ~ last ~ rendering }
+    \__mermaid_write_out:n { \l__mermaid_tmp_str }
+    \mermaid@log { \l__mermaid_tmp_str }
+    \bool_gset_true:N \g__mermaid_ok_bool
+    \mermaid@log { ---------- }
+  }
+% #1: シェルに渡す入力パス，#2: TeX から見た出力パス
+\cs_new_protected:Npn \__mermaid_render:nn #1#2
+  {
+    \bool_gset_true:N \g__mermaid_rendered_bool
+    \str_if_eq:VnTF \l__mermaid_pdffit_str { auto }
+      {
+        \__mermaid_get_major:V \l__mermaid_renderer_str
+        \str_clear:N \l__mermaid_fit_str
+        \str_if_empty:NF \l__mermaid_major_str
+          {
+            \int_compare:nNnT { \l__mermaid_major_str } < { 12 }
+              { \str_set:Nn \l__mermaid_fit_str { -f } }
+          }
+        \str_set:Nx \l__mermaid_tmp_str
+          {
+            pdf-fit: ~ auto ~ -> ~ ' \l__mermaid_fit_str ' ~
+            (Mermaid ~ CLI ~ major ~ version: ~ ' \l__mermaid_major_str ')
+          }
+        \mermaid@log { \l__mermaid_tmp_str }
+        \__mermaid_write_out:n { \l__mermaid_tmp_str }
+      }
+      {
+        \str_set_eq:NN \l__mermaid_fit_str \l__mermaid_pdffit_str
+        \__mermaid_write_out:n { }
+      }
+    % 描画に失敗したとき古い図やスタンプが残らないよう，先に空にしておく
+    \__mermaid_truncate:n { \mermaid@base .stamp }
+    \__mermaid_truncate:n {#2}
+    \str_set_eq:NN \l__mermaid_cmd_str \l__mermaid_renderer_str
+    \str_if_empty:NF \l__mermaid_fit_str
+      { \str_put_right:Nx \l__mermaid_cmd_str { \c_space_tl \l__mermaid_fit_str } }
+    \str_if_empty:NF \l__mermaid_xargs_str
+      { \str_put_right:Nx \l__mermaid_cmd_str { \c_space_tl \l__mermaid_xargs_str } }
+    \str_put_right:Nx \l__mermaid_cmd_str
+      {
+        \c_space_tl -i ~ " #1 " ~ -o ~ " \g__mermaid_outdir_str / #2 "
+        \c_space_tl >> ~ " \g__mermaid_outdir_str / \mermaid@base .out "
+        \c_space_tl 2> ~ " \g__mermaid_outdir_str / \mermaid@base .err "
+      }
+    \mermaid@log { full ~ shell ~ command: ~ \l__mermaid_cmd_str }
+    \mermaid@log { .mmd ~ size ~ (bytes): ~ \file_size:n { \mermaid@infile } }
+    \cs_if_exist_use:N \pdfresettimer
+    \sys_shell_now:x { \l__mermaid_cmd_str }
+    \cs_if_exist:NTF \pdfelapsedtime
+      { \mermaid@log { timing: ~ \int_use:N \pdfelapsedtime \c_space_tl ms ~ (pdfelapsedtime) } }
+      { \mermaid@log { timing: ~ (pdfelapsedtime ~ not ~ available ~ on ~ this ~ engine) } }
+    \__mermaid_if_pdf:nTF {#2}
+      {
+        \bool_gset_true:N \g__mermaid_ok_bool
+        \iow_open:Nn \g__mermaid_iow { \mermaid@base .stamp }
+        \iow_now:Nx \g__mermaid_iow { \l__mermaid_key_str }
+        \iow_close:N \g__mermaid_iow
+        \mermaid@log { renderer ~ subprocess: ~ finished ~ (parsed ~ as ~ success) }
+        \mermaid@log { output ~ PDF ~ size ~ (bytes): ~ \file_size:n {#2} }
+        \mermaid@log { PDF ~ header ~ check: ~ OK }
+      }
+      {
+        \bool_gset_false:N \g__mermaid_ok_bool
+        \mermaid@log { expected ~ output ~ PDF ~ missing ~ or ~ invalid ~ after ~ running ~ the ~ renderer }
+      }
+    \mermaid@log { ---------- }
+  }
+\cs_new_protected:Npn \mermaid@findincludeprefix
+  {
+    \str_if_eq:VnF \g__mermaid_outdir_str { . }
+      {
+        \regex_match:nVTF { \A (/|[A-Za-z]:) } \g__mermaid_outdir_str
+          { \tl_gset:Nx \mermaid@includeprefix { \g__mermaid_outdir_str / } }
+          {
+            \str_if_empty:NF \g__mermaid_cwd_str
+              { \tl_gset:Nx \mermaid@includeprefix { \g__mermaid_cwd_str / \g__mermaid_outdir_str / } }
+          }
+      }
+  }
+% 絶対パスで取り込むときは，BoundingBox を書いた .xbb を図の隣に用意しておく．
+% dvipdfmx.def はパスを引用符で囲まずに extractbb を呼ぶため，空白を含むパスで失敗する．
+% .xbb には作成日時が入るので，図を描画し直したときと .xbb が無いときだけ作る
+% （latexmk の収束を妨げないため）
+\cs_new_protected:Npn \mermaid@makexbb@aux
+  {
+    \bool_if:NTF \g__mermaid_rendered_bool
+      { \__mermaid_extractbb: }
+      { \file_if_exist:nF { \mermaid@base .xbb } { \__mermaid_extractbb: } }
+  }
+\cs_new_protected:Npn \__mermaid_extractbb:
+  {
+    \sys_shell_now:x
+      {
+        extractbb ~ -O ~ " \g__mermaid_outdir_str / \mermaid@base .pdf "
+        \c_space_tl > ~ " \g__mermaid_outdir_str / \mermaid@base .xbb "
+      }
+  }
+\ExplSyntaxOff
+
 \newcount\c@mermaid@diag
 \c@mermaid@diag=\z@
 \def\mermaid@env@scanopt{%
@@ -208,7 +371,7 @@
   \global\advance\c@mermaid@diag\@ne\relax
   \edef\mermaid@in{mermaid/\jobname-mermaid-\the\c@mermaid@diag.mmd}%
   \edef\mermaid@out{mermaid/\jobname-mermaid-\the\c@mermaid@diag.pdf}%
-  \mermaid@mkdir
+  \mermaid@init
   \VerbatimOut{\mermaid@in}%
 }
 \newenvironment{mermaid}{%
@@ -216,8 +379,8 @@
   \mermaid@env@scanopt
 }{%
   \endVerbatimOut
-  \mermaid@run{\mermaid@in}{$D/\mermaid@in}{\mermaid@out}%
-  \IfFileExists{\mermaid@out}{%
+  \mermaid@run{\mermaid@in}{\mermaid@outdir/\mermaid@in}{\mermaid@out}%
+  \mermaid@ifok{%
     \mermaid@setincludeprefix
     \mermaid@makexbb
     \begin{center}%
@@ -260,7 +423,7 @@
     \edef\mermaid@out{mermaid/\jobname-mermaid-\the\c@mermaid@diag.pdf}%
     % 外部ファイルは作業ディレクトリ基準のパスなので，そのままシェルに渡す
     \mermaid@run{\mermaid@in}{\detokenize{#2}}{\mermaid@out}%
-    \IfFileExists{\mermaid@out}{%
+    \mermaid@ifok{%
       \mermaid@setincludeprefix
       \mermaid@makexbb
       \begin{center}%
