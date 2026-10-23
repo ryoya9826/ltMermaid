@@ -5,7 +5,7 @@ Embed [Mermaid](https://mermaid.js.org/) diagrams in LaTeX. Diagram sources are 
 Originally, `ltmermaid` was created exclusively for LuaLaTeX. Subsequently, the `mermaid` package was developed as a LuaTeX-independent version to support other engines. Therefore, there are two packages provided in this repository:
 
 - `mermaid.sty` (`mermaid`)  
-The implementation to be used with pdfLaTeX / XeLaTeX / upLaTeX / LuaLaTeX, etc. It invokes the Mermaid CLI via the `shellesc` package (or directly via `\write18`). No Lua interpreter is required.
+The implementation to be used with pdfLaTeX / XeLaTeX / upLaTeX / LuaLaTeX, etc. It invokes the Mermaid CLI via the `shellesc` package (or directly via `\write18`).
 - `ltmermaid.sty` (`ltmermaid`)  
 An implementation dedicated to LuaLaTeX that provides the same macros (the `Renderer` option, `\Mermaid...` macros, and the `mermaid` environment) as the `mermaid` package above. The CLI is invoked via Lua's `os.execute`.
 
@@ -20,12 +20,15 @@ Contributors: [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 | Item             | Requirement                                                                      |
 | ---------------- | -------------------------------------------------------------------------------- |
-| TeX engine       | upLaTeX / pdfLaTeX / XeLaTeX / LuaLaTeX, etc. (Lua interpreter is not required)  |
+| TeX engine       | upLaTeX / pdfLaTeX / XeLaTeX / LuaLaTeX, etc.                                    |
 | LaTeX format     | LaTeX2e                                                                          |
 | Shell escape     | `-shell-escape` (the CLI is invoked via `shellesc` / `\write18`)                 |
-| External tool    | Mermaid CLI (`mmdc`)                                                             |
+| External tool    | Mermaid CLI (`mmdc`); `kpsewhich` and `texlua` from the TeX distribution         |
+| OS               | Linux, macOS, and Windows (tested with TeX Live; MiKTeX has not been tested)     |
 
 If the CLI is missing in the environment, this package does not install it automatically. If you pass a command containing `npx -y` (e.g., `npx -y @mermaid-js/mermaid-cli`) to `Renderer`, `npx` may download the package. Unless another command is specified via `Renderer`, `mmdc` must be on the `PATH` in the compilation environment. Headless Chromium (Puppeteer) is required. Please refer to the Mermaid CLI documentation for details.
+
+On Windows, file and directory paths that contain a single quote (`'`) are not supported.
 
 ### For `ltmermaid`
 
@@ -35,8 +38,9 @@ The following points differ from `mermaid`:
 | ---------------- | ------------------------------------------------------------ |
 | TeX engine       | LuaLaTeX (`lualatex`) only                                   |
 | Shell escape     | `lualatex -shell-escape` (the CLI is invoked via `os.execute`) |
+| External tool    | Mermaid CLI (`mmdc`)                                         |
 
-As stated above, the engine is limited to LuaLaTeX. In other respects, the handling of external tools and `Renderer` / `npx` is identical to `mermaid`.
+As stated above, the engine is limited to LuaLaTeX. In other respects, the handling of external tools and `Renderer` / `npx`, the supported operating systems, and the limitation on Windows are identical to `mermaid`.
 
 ---
 
@@ -154,6 +158,7 @@ For full explanations and diagram examples, see `mermaid-doc.tex` / `mermaid-doc
 
 ### `mermaid.sty`
 
+- Version 1.2 (2026-10-23): Supported Windows (TeX Live). All diagrams are rendered again on the first run after updating.
 - Version 1.1 (2026-10-22): Supported Mermaid CLI 12 (`-f` is passed only for Mermaid CLI 11 or older; added `\MermaidPdfFit`), rendered diagrams only when their source or renderer settings change, and supported `-output-directory`.
 - Version 1.0c (2026-05-06): Various bug fixes.
 - Version 1.0b (2026-04-29): Added `\mermaidfile` support, Makefile build/test targets, and `l3build` regression testing.
@@ -162,6 +167,7 @@ For full explanations and diagram examples, see `mermaid-doc.tex` / `mermaid-doc
 
 ### `ltmermaid.sty`
 
+- Version 1.2 (2026-10-23): Improved the handling of file paths on Windows (TeX Live).
 - Version 1.1 (2026-10-22): Supported Mermaid CLI 12 (`-f` is passed only for Mermaid CLI 11 or older; added `\MermaidPdfFit`), rendered diagrams only when their source or renderer settings change, and fixed output file name conflicts between the `mermaid` environment and `\mermaidfile`.
 - Version 1.0c (2026-05-06): Various bug fixes.
 - Version 1.0b (2026-04-29): Added `\mermaidfile` support, Makefile build/test targets, and `l3build` regression testing.

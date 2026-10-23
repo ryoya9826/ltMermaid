@@ -83,7 +83,9 @@ Mermaid 図のレンダリングには，Mermaid CLI（\texttt{mmdc} など）�
   シェルエスケープ &
     \texttt{-shell-escape}（\texttt{shellesc} / \verb|\write18| 経由で CLI を起動） \\
   外部ツール &
-    Mermaid CLI（\texttt{mmdc}）\\
+    Mermaid CLI（\texttt{mmdc}），\TeX{} ディストリビューションの \texttt{kpsewhich} と \texttt{texlua} \\
+  OS &
+    Linux，macOS，Windows（\TeX{} Live で確認．MiKTeX は未確認） \\
   \hline
 \end{tabularx}
 
@@ -95,6 +97,8 @@ Mermaid CLI を一般的な方法でインストールするには，\textbf{Nod
 
 コンパイルを実行する際，\texttt{Renderer} オプションで別のコマンドを指定しない限り，既定のレンダラである \texttt{mmdc} へのパスが通っており，実行可能である必要があります（別のコマンドを指定した場合も同様です）．
 なお，Mermaid CLI はヘッドレス Chromium（Puppeteer）に依存しています．詳細は Mermaid CLI の公式ドキュメントを参照してください．
+
+Windows では，シングルクォート（\texttt{\textquotesingle}）を含むファイルやディレクトリのパスは使えません．
 
 ログは \texttt{\string\typeout} で \texttt{[mermaid]} プレフィックス付きで出力されます．トラブル時は \texttt{mermaid/} 下の \texttt{.err} を確認してください．
 
@@ -381,6 +385,7 @@ stateDiagram-v2
 \section{更新履歴}
 
 \begin{description}
+\item[Version 1.2（2026-10-23）] Windows（\TeX{} Live）に対応．更新後の最初のコンパイルでは，すべての図をレンダリングし直す．
 \item[Version 1.1（2026-10-22）] Mermaid CLI 12 に対応（\texttt{-f} は Mermaid CLI 11 以前のときだけ渡すように変更し，\cmd{MermaidPdfFit} を追加）．ソースかレンダラーの設定が変わったときだけ図をレンダリングするように変更．\texttt{-output-directory} に対応．
 \item[Version 1.0c（2026-05-06）] Various bug fixes.
 \item[Version 1.0b（2026-04-29）] Added \cmd{mermaidfile} support, Makefile build/test targets, and \texttt{l3build} regression testing.

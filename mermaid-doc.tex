@@ -84,7 +84,9 @@ Compile with shell escape enabled (\verb|-shell-escape|).
   Shell escape &
     \texttt{-shell-escape} (invoke the CLI via \texttt{shellesc} / \verb|\write18|) \\
   External tool &
-    Mermaid CLI (\texttt{mmdc}) \\
+    Mermaid CLI (\texttt{mmdc}); \texttt{kpsewhich} and \texttt{texlua} from the \TeX{} distribution \\
+  OS &
+    Linux, macOS, and Windows (tested with \TeX{} Live; MiKTeX has not been tested) \\
   \hline
 \end{tabularx}
 
@@ -99,6 +101,8 @@ If you set the package option \texttt{Renderer} to a command that includes \text
 When compiling, unless the \texttt{Renderer} option names another command, the default renderer \texttt{mmdc}
 must be visible in the same environment (if you set \texttt{Renderer}, that command must be visible instead).
 The Mermaid CLI depends on headless Chromium (Puppeteer); see the Mermaid CLI documentation for details.
+
+On Windows, file and directory paths that contain a single quote (\texttt{\textquotesingle}) are not supported.
 
 Log output uses \texttt{\string\typeout} with the \texttt{[mermaid]} prefix. If something goes wrong, check the \texttt{.err} files under \texttt{mermaid/}.
 
@@ -390,6 +394,7 @@ stateDiagram-v2
 \section{Revision history}
 
 \begin{description}
+\item[Version 1.2 (2026-10-23)] Supported Windows (\TeX{} Live). All diagrams are rendered again on the first run after updating.
 \item[Version 1.1 (2026-10-22)] Supported Mermaid CLI 12 (\texttt{-f} is passed only for Mermaid CLI 11 or older; added \cmd{MermaidPdfFit}), rendered diagrams only when their source or renderer settings change, and supported \texttt{-output-directory}.
 \item[Version 1.0c (2026-05-06)] Various bug fixes.
 \item[Version 1.0b (2026-04-29)] Added \cmd{mermaidfile} support, Makefile build/test targets, and \texttt{l3build} regression testing.
