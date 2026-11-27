@@ -10,7 +10,7 @@
 % and version 1.3c or later is part of all distributions of LaTeX
 % version 2008/05/04 or later.
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{ltmermaid}[2026/10/22 v1.1 Mermaid via Mermaid CLI / PDF]
+\ProvidesPackage{ltmermaid}[2026/10/23 v1.2 Mermaid via Mermaid CLI / PDF]
 \RequirePackage{ifluatex}
 \ifluatex\else
   \PackageError{ltmermaid}{This package requires LuaLaTeX (lualatex).}{}
@@ -28,7 +28,12 @@
 mermaid_cli = mermaid_cli or {}
 mermaid_cli.default_renderer = "mmdc"
 local lfs = require("lfs")
+-- cmd.exe はシングルクォートを引用符として扱わないので，Windows ではダブルクォートで囲む
+-- （Windows のパスには " を使えない）
 local function shq(p)
+  if os.type == "windows" then
+    return '"' .. p .. '"'
+  end
   return "'" .. string.gsub(p, "'", "'\\''") .. "'"
 end
 local function abspath(rel)
