@@ -17,4 +17,7 @@ build/
 out/
 
 # l3build テストで生成される PDF
-testfiles/*.pdf
+dev/testfiles/*.pdf
+
+# 開発用の手順書などはリポジトリに含めない
+docs/

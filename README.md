@@ -12,7 +12,7 @@ An implementation dedicated to LuaLaTeX that provides the same macros (the `Rend
 Author: Ryoya Ando — [https://ryoya9826.github.io/](https://ryoya9826.github.io/)  
 License: [LPPL](https://www.latex-project.org/lppl.txt) version 1.3c  
 Source & issues: [https://github.com/ryoya9826/ltMermaid](https://github.com/ryoya9826/ltMermaid)  
-Contributors: [CONTRIBUTORS.md](CONTRIBUTORS.md)
+Contributors: see [Contributors](#contributors)
 
 ---
 
@@ -154,6 +154,15 @@ For full explanations and diagram examples, see `mermaid-doc.tex` / `mermaid-doc
 
 ---
 
+## Contributors
+
+- Ryoya Ando — original author of `ltmermaid` / `mermaid`
+- Gregory R. Warnes — added `\mermaidfile` support, Makefile build/test targets, and `l3build` regression testing ([#1](https://github.com/ryoya9826/ltMermaid/pull/1))
+- Oliver Kopp — added the CTAN badge ([#2](https://github.com/ryoya9826/ltMermaid/pull/2)), and reported the incompatibility with Mermaid CLI 12 ([#3](https://github.com/ryoya9826/ltMermaid/issues/3)) and diagrams being rendered again in every run ([#4](https://github.com/ryoya9826/ltMermaid/issues/4))
+- Steve-Li-1998 — reported that `mermaid.sty` failed with `-output-directory` ([#5](https://github.com/ryoya9826/ltMermaid/issues/5))
+
+---
+
 ## Revision History
 
 ### `mermaid.sty`
@@ -161,7 +170,7 @@ For full explanations and diagram examples, see `mermaid-doc.tex` / `mermaid-doc
 - Version 1.2 (2026-10-23): Supported Windows (TeX Live). All diagrams are rendered again on the first run after updating.
 - Version 1.1 (2026-10-22): Supported Mermaid CLI 12 (`-f` is passed only for Mermaid CLI 11 or older; added `\MermaidPdfFit`), rendered diagrams only when their source or renderer settings change, and supported `-output-directory`.
 - Version 1.0c (2026-05-06): Various bug fixes.
-- Version 1.0b (2026-04-29): Added `\mermaidfile` support, Makefile build/test targets, and `l3build` regression testing.
+- Version 1.0b (2026-04-29): Added `\mermaidfile` support.
 - Version 1.0a (2026-04-20): Renamed sample documents.
 - Version 1.0 (2026-04-16): Stable release.
 
@@ -170,7 +179,7 @@ For full explanations and diagram examples, see `mermaid-doc.tex` / `mermaid-doc
 - Version 1.2 (2026-10-23): Improved the handling of file paths on Windows (TeX Live).
 - Version 1.1 (2026-10-22): Supported Mermaid CLI 12 (`-f` is passed only for Mermaid CLI 11 or older; added `\MermaidPdfFit`), rendered diagrams only when their source or renderer settings change, and fixed output file name conflicts between the `mermaid` environment and `\mermaidfile`.
 - Version 1.0c (2026-05-06): Various bug fixes.
-- Version 1.0b (2026-04-29): Added `\mermaidfile` support, Makefile build/test targets, and `l3build` regression testing.
+- Version 1.0b (2026-04-29): Added `\mermaidfile` support.
 - Version 1.0a (2026-04-20): Renamed sample documents.
 - Version 1.0 (2026-04-16): Stable release.
 - Version 0.2 (2026-04-13): Removed `MERMAID_MMDC` and `MERMAID_MMDC_OPTIONS`.

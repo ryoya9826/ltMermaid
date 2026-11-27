@@ -1,13 +1,16 @@
 # Makefile for ltMermaid test and build
+# リポジトリの top で make -C dev <target> として実行する
 
+# パッケージと doc はリポジトリの top にある
+TOP=..
 LATEX=lualatex
 PDFLATEX=pdflatex
 L3BUILD=texlua $(shell kpsewhich l3build.lua)
 LATEX_OPTS=-shell-escape -interaction=nonstopmode
 DOCS=ltmermaid-doc.tex mermaid-doc.tex
 TEXMFLOCAL ?= $(shell kpsewhich --var-value=TEXMFLOCAL 2>/dev/null)
-INSTALL_STY=ltmermaid.sty mermaid.sty
-INSTALL_DOC=ltmermaid-doc.tex mermaid-doc.tex ltmermaid-doc-ja.tex mermaid-doc-ja.tex README.md
+INSTALL_STY=$(addprefix $(TOP)/,ltmermaid.sty mermaid.sty)
+INSTALL_DOC=$(addprefix $(TOP)/,ltmermaid-doc.tex mermaid-doc.tex ltmermaid-doc-ja.tex mermaid-doc-ja.tex README.md)
 
 .DEFAULT_GOAL := help
 .PHONY: help all build test l3build-check l3build-luatex-check l3build-test l3build-clean install local-install clean
@@ -15,8 +18,8 @@ INSTALL_DOC=ltmermaid-doc.tex mermaid-doc.tex ltmermaid-doc-ja.tex mermaid-doc-j
 all: build l3build-test
 
 build:
-	$(LATEX) $(LATEX_OPTS) ltmermaid-doc.tex
-	$(LATEX) $(LATEX_OPTS) mermaid-doc.tex
+	cd $(TOP) && $(LATEX) $(LATEX_OPTS) ltmermaid-doc.tex
+	cd $(TOP) && $(LATEX) $(LATEX_OPTS) mermaid-doc.tex
 
 test: l3build-test
 
@@ -32,7 +35,7 @@ l3build-clean:
 	$(L3BUILD) clean
 
 help:
-	@echo "Usage: make <target>"
+	@echo "Usage: make -C dev <target>"
 	@echo
 	@echo "Available targets:"
 	@echo "  all                  Build docs and run the full l3build test suite"
@@ -47,8 +50,8 @@ help:
 	@echo "  clean                Remove temporary build files"
 	@echo
 	@echo "Examples:"
-	@echo "  make all"
-	@echo "  make local-install LOCAL_MKTEX=/path/to/texmf"
+	@echo "  make -C dev all"
+	@echo "  make -C dev local-install LOCAL_MKTEX=/path/to/texmf"
 
 install: TEXMFLOCAL := $(TEXMFLOCAL)
 install:
@@ -66,7 +69,7 @@ local-install:
 		echo "Error: LOCAL_MKTEX is not defined."; \
 		echo; \
 		echo "Usage:"; \
-		echo "  make local-install LOCAL_MKTEX=/path/to/texmf"; \
+		echo "  make -C dev local-install LOCAL_MKTEX=/path/to/texmf"; \
 		echo; \
 		exit 1; \
 	fi
@@ -76,6 +79,7 @@ local-install:
 	@install -m 644 $(INSTALL_DOC) "$(LOCAL_MKTEX)/doc/latex/ltmermaid/"
 	@mktexlsr "$(LOCAL_MKTEX)"
 
+# doc の PDF は Git で管理しているので消さない
 clean:
-	rm -f *.aux *.log *.out *.toc *.pdf *.dvi *.fls *.fdb_latexmk
-	rm -rf mermaid/
+	cd $(TOP) && rm -f *.aux *.log *.out *.toc *.dvi *.fls *.fdb_latexmk
+	rm -rf $(TOP)/mermaid/
